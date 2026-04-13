@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from 'next/image'
 
 export default function Home() {
   return (
@@ -6,11 +7,24 @@ export default function Home() {
 
       {/* NAVBAR */}
       <nav className="fixed w-full z-50 bg-white shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 md:px-10 py-4">
+        <div className="flex items-center justify-between pl-2 pr-10 py-4 w-full">
 
     {/* LOGO */}
-          <div className="font-bold text-lg">
-            SkySend Expedition
+          <div className="flex items-center">
+            <Image
+            src="/images/Logo.png"
+            alt="logo"
+            width={160}
+            height={160}
+            />
+            <div className="flex flex-col leading-tight">
+              <span className="font-bold text-lg">
+                SkySend Expedition
+              </span>
+              <span className="text-xs text-gray-500 tracking-widest">
+                AIR CARGO SYSTEM
+              </span>
+            </div>
           </div>
 
       {/* MENU */}
@@ -37,7 +51,7 @@ export default function Home() {
         {/* BACKGROUND (PASTI MUNCUL) */}
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/hero.jpg')" }}
+          style={{ backgroundImage: "url('/images/bg.png')" }}
         />
 
         {/* OVERLAY */}
