@@ -4,7 +4,6 @@ import Image from 'next/image'
 export default function Home() {
   return (
     <main>
-
       {/* NAVBAR */}
       <nav className="fixed w-full z-50 bg-white shadow-md">
         <div className="flex items-center justify-between pl-2 pr-10 py-4 w-full">
@@ -33,15 +32,14 @@ export default function Home() {
               HOME
             </Link>
             <Link href="/tentang-kami">TENTANG KAMI</Link>
-            <Link href="#">HUBUNGI KAMI</Link>
-            <Link href="#">LACAK KARGO</Link>
+            <Link href="/kontak">HUBUNGI KAMI</Link>
+            <Link href="/lacak-kargo">LACAK KARGO</Link>
           </div>
 
       {/* BUTTON */}
-          <button className="bg-blue-600 text-white px-5 py-2 rounded-full">
+          <Link href="/login" className="bg-blue-600 text-white px-5 py-2 rounded-full">
             Login Supervisor
-          </button>
-
+          </Link>
         </div>
       </nav>
 

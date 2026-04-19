@@ -35,13 +35,13 @@ export default function TentangKami() {
               TENTANG KAMI
             </Link>
             <Link href="/kontak">HUBUNGI KAMI</Link>
-            <Link href="/tracking">LACAK KARGO</Link>
+            <Link href="/lacak-kargo">LACAK KARGO</Link>
           </div>
 
           {/* BUTTON */}
-          <button className="bg-blue-600 text-white px-5 py-2 rounded-full">
+          <Link href="/login" className="bg-blue-600 text-white px-5 py-2 rounded-full">
             Login Supervisor
-          </button>
+          </Link>
 
         </div>
       </nav>
