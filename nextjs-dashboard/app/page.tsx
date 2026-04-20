@@ -66,14 +66,14 @@ export default function Home() {
             KECEPATAN ADALAH PRIORITAS KAMI.
           </h2>
 
-          <p className="mt-6 text-lg">
+          <p className="mt-6 text-lg py-6">
             Sistem pelacakan kargo udara real-time dengan teknologi canggih
             untuk memastikan setiap paket tiba tepat waktu.
           </p>
 
-          <button className="mt-8 bg-blue-700 px-6 py-3 rounded-lg font-semibold">
+          <Link href="/lacak-kargo" className="mt-8 bg-blue-700 px-6 py-3 rounded-lg font-semibold">
             MULAI PELACAKAN SEKARANG
-          </button>
+          </Link>
 
         </div>
       </section>
