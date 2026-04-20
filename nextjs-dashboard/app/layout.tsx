@@ -1,4 +1,5 @@
 import '@/app/ui/global.css';
+import 'leaflet/dist/leaflet.css';
 import { inter } from '@/app/ui/fonts';
 
 export default function RootLayout({
