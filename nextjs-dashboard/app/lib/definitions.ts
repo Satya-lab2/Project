@@ -1,7 +1,7 @@
-// This file contains type definitions for your data.
-// It describes the shape of the data, and what data type each property should accept.
-// For simplicity of teaching, we're manually defining these types.
-// However, these types are generated automatically if you're using an ORM such as Prisma.
+// ============================================================
+// KARGO SYSTEM — Type Definitions
+// ============================================================
+
 export type User = {
   id: string;
   name: string;
@@ -9,80 +9,75 @@ export type User = {
   password: string;
 };
 
-export type Customer = {
+export type Airport = {
+  kode: string;
+  nama: string;
+  kota: string;
+  provinsi: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type Flight = {
   id: string;
-  name: string;
-  email: string;
-  image_url: string;
+  no_penerbangan: string;
+  maskapai: string;
+  asal: string;
+  tujuan: string;
+  etd: string;
+  eta: string;
+  tanggal: string;
+  status: 'On Time' | 'Boarding' | 'Delayed' | 'Departed' | 'Arrived' | 'Cancelled';
+  kapasitas_kg: number;
+  kota_asal?: string;
+  kota_tujuan?: string;
+  total_awb?: number;
+  total_kargo_kg?: number;
 };
 
-export type Invoice = {
+export type Shipment = {
   id: string;
-  customer_id: string;
-  amount: number;
-  date: string;
-  // In TypeScript, this is called a string union type.
-  // It means that the "status" property can only be one of the two strings: 'pending' or 'paid'.
-  status: 'pending' | 'paid';
+  no_awb: string;
+  pengirim: string;
+  penerima: string;
+  alamat_asal: string;
+  alamat_tujuan: string;
+  jenis_barang: string;
+  berat_kg: number;
+  layanan: 'Regular' | 'Express' | 'Same Day';
+  status: 'Proses' | 'Dalam Perjalanan' | 'Selesai' | 'Expired';
+  tanggal_kirim: string;
+  created_at?: string;
 };
 
-export type Revenue = {
-  month: string;
-  revenue: number;
+export type TrackingEvent = {
+  waktu: string;
+  lokasi: string;
+  keterangan: string;
+  urutan: number;
 };
 
-export type LatestInvoice = {
-  id: string;
-  name: string;
-  image_url: string;
-  email: string;
-  amount: string;
+export type ManifestItem = {
+  no_awb: string;
+  pengirim: string;
+  penerima: string;
+  jenis_barang: string;
+  berat_kg: number;
+  layanan: string;
+  status: string;
+  posisi_muat: string;
 };
 
-// The database returns a number for amount, but we later format it to a string with the formatCurrency function
-export type LatestInvoiceRaw = Omit<LatestInvoice, 'amount'> & {
-  amount: number;
-};
-
-export type InvoicesTable = {
-  id: string;
-  customer_id: string;
-  name: string;
-  email: string;
-  image_url: string;
-  date: string;
-  amount: number;
-  status: 'pending' | 'paid';
-};
-
-export type CustomersTableType = {
-  id: string;
-  name: string;
-  email: string;
-  image_url: string;
-  total_invoices: number;
-  total_pending: number;
-  total_paid: number;
-};
-
-export type FormattedCustomersTable = {
-  id: string;
-  name: string;
-  email: string;
-  image_url: string;
-  total_invoices: number;
-  total_pending: string;
-  total_paid: string;
-};
-
-export type CustomerField = {
-  id: string;
-  name: string;
-};
-
-export type InvoiceForm = {
-  id: string;
-  customer_id: string;
-  amount: number;
-  status: 'pending' | 'paid';
+export type DashboardStats = {
+  flights: {
+    total_penerbangan: number;
+    sudah_berangkat: number;
+    delayed: number;
+  };
+  shipments: {
+    total_awb: number;
+    total_kg: number;
+    selesai: number;
+    dalam_perjalanan: number;
+  };
 };

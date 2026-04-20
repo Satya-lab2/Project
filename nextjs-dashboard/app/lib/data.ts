@@ -1,218 +1,164 @@
 import postgres from 'postgres';
-import {
-  CustomerField,
-  CustomersTableType,
-  InvoiceForm,
-  InvoicesTable,
-  LatestInvoiceRaw,
-  Revenue,
-} from './definitions';
-import { formatCurrency } from './utils';
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
-export async function fetchRevenue() {
+// ============================================================
+// FLIGHTS
+// ============================================================
+export async function fetchFlights() {
   try {
-    // Artificially delay a response for demo purposes.
-    // Don't do this in production :)
-
-    // console.log('Fetching revenue data...');
-    // await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const data = await sql<Revenue[]>`SELECT * FROM revenue`;
-
-    // console.log('Data fetch completed after 3 seconds.');
-
+    const data = await sql`
+      SELECT
+        f.id, f.no_penerbangan, f.maskapai,
+        f.asal, f.tujuan, f.etd, f.eta,
+        f.tanggal, f.status, f.kapasitas_kg,
+        a1.kota AS kota_asal,
+        a2.kota AS kota_tujuan,
+        COUNT(m.shipment_id) AS total_awb,
+        COALESCE(SUM(s.berat_kg), 0) AS total_kargo_kg
+      FROM flights f
+      JOIN airports a1 ON f.asal   = a1.kode
+      JOIN airports a2 ON f.tujuan = a2.kode
+      LEFT JOIN manifest m  ON m.flight_id   = f.id
+      LEFT JOIN shipments s ON s.id          = m.shipment_id
+      GROUP BY f.id, a1.kota, a2.kota
+      ORDER BY f.etd ASC
+    `;
     return data;
   } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch revenue data.');
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data penerbangan.');
   }
 }
 
-export async function fetchLatestInvoices() {
+export async function fetchFlightById(id: string) {
   try {
-    const data = await sql<LatestInvoiceRaw[]>`
-      SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
-      FROM invoices
-      JOIN customers ON invoices.customer_id = customers.id
-      ORDER BY invoices.date DESC
-      LIMIT 5`;
-
-    const latestInvoices = data.map((invoice) => ({
-      ...invoice,
-      amount: formatCurrency(invoice.amount),
-    }));
-    return latestInvoices;
+    const data = await sql`
+      SELECT f.*, a1.nama AS nama_asal, a2.nama AS nama_tujuan
+      FROM flights f
+      JOIN airports a1 ON f.asal   = a1.kode
+      JOIN airports a2 ON f.tujuan = a2.kode
+      WHERE f.id = ${id}
+    `;
+    return data[0];
   } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch the latest invoices.');
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil detail penerbangan.');
   }
 }
 
-export async function fetchCardData() {
+// ============================================================
+// SHIPMENTS (AWB)
+// ============================================================
+export async function fetchShipments() {
   try {
-    // You can probably combine these into a single SQL query
-    // However, we are intentionally splitting them to demonstrate
-    // how to initialize multiple queries in parallel with JS.
-    const invoiceCountPromise = sql`SELECT COUNT(*) FROM invoices`;
-    const customerCountPromise = sql`SELECT COUNT(*) FROM customers`;
-    const invoiceStatusPromise = sql`SELECT
-         SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
-         SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
-         FROM invoices`;
+    const data = await sql`
+      SELECT * FROM shipments
+      ORDER BY created_at DESC
+    `;
+    return data;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data shipment.');
+  }
+}
 
-    const data = await Promise.all([
-      invoiceCountPromise,
-      customerCountPromise,
-      invoiceStatusPromise,
+export async function fetchShipmentByAwb(no_awb: string) {
+  try {
+    const data = await sql`
+      SELECT * FROM shipments
+      WHERE no_awb = ${no_awb}
+    `;
+    return data[0] ?? null;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mencari AWB.');
+  }
+}
+
+// ============================================================
+// TRACKING EVENTS
+// ============================================================
+export async function fetchTrackingByAwb(no_awb: string) {
+  try {
+    const data = await sql`
+      SELECT te.waktu, te.lokasi, te.keterangan, te.urutan
+      FROM tracking_events te
+      JOIN shipments s ON s.id = te.shipment_id
+      WHERE s.no_awb = ${no_awb}
+      ORDER BY te.urutan ASC
+    `;
+    return data;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data tracking.');
+  }
+}
+
+// ============================================================
+// MANIFEST
+// ============================================================
+export async function fetchManifestByFlight(flight_id: string) {
+  try {
+    const data = await sql`
+      SELECT
+        s.no_awb, s.pengirim, s.penerima,
+        s.jenis_barang, s.berat_kg, s.layanan, s.status,
+        m.posisi_muat
+      FROM manifest m
+      JOIN shipments s ON s.id = m.shipment_id
+      WHERE m.flight_id = ${flight_id}
+      ORDER BY s.no_awb ASC
+    `;
+    return data;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil manifest penerbangan.');
+  }
+}
+
+// ============================================================
+// DASHBOARD SUMMARY
+// ============================================================
+export async function fetchDashboardStats() {
+  try {
+    const [flightStats, shipmentStats] = await Promise.all([
+      sql`
+        SELECT
+          COUNT(*) AS total_penerbangan,
+          SUM(CASE WHEN status = 'Departed' OR status = 'Arrived' THEN 1 ELSE 0 END) AS sudah_berangkat,
+          SUM(CASE WHEN status = 'Delayed' THEN 1 ELSE 0 END) AS delayed
+        FROM flights
+        WHERE tanggal = CURRENT_DATE
+      `,
+      sql`
+        SELECT
+          COUNT(*) AS total_awb,
+          SUM(berat_kg) AS total_kg,
+          SUM(CASE WHEN status = 'Selesai' THEN 1 ELSE 0 END) AS selesai,
+          SUM(CASE WHEN status = 'Dalam Perjalanan' THEN 1 ELSE 0 END) AS dalam_perjalanan
+        FROM shipments
+      `,
     ]);
-
-    const numberOfInvoices = Number(data[0][0].count ?? '0');
-    const numberOfCustomers = Number(data[1][0].count ?? '0');
-    const totalPaidInvoices = formatCurrency(data[2][0].paid ?? '0');
-    const totalPendingInvoices = formatCurrency(data[2][0].pending ?? '0');
-
     return {
-      numberOfCustomers,
-      numberOfInvoices,
-      totalPaidInvoices,
-      totalPendingInvoices,
+      flights: flightStats[0],
+      shipments: shipmentStats[0],
     };
   } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch card data.');
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil statistik dashboard.');
   }
 }
 
-const ITEMS_PER_PAGE = 6;
-export async function fetchFilteredInvoices(
-  query: string,
-  currentPage: number,
-) {
-  const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-
+// ============================================================
+// AIRPORTS
+// ============================================================
+export async function fetchAirports() {
   try {
-    const invoices = await sql<InvoicesTable[]>`
-      SELECT
-        invoices.id,
-        invoices.amount,
-        invoices.date,
-        invoices.status,
-        customers.name,
-        customers.email,
-        customers.image_url
-      FROM invoices
-      JOIN customers ON invoices.customer_id = customers.id
-      WHERE
-        customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`} OR
-        invoices.amount::text ILIKE ${`%${query}%`} OR
-        invoices.date::text ILIKE ${`%${query}%`} OR
-        invoices.status ILIKE ${`%${query}%`}
-      ORDER BY invoices.date DESC
-      LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
-    `;
-
-    return invoices;
+    const data = await sql`SELECT * FROM airports ORDER BY kode ASC`;
+    return data;
   } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch invoices.');
-  }
-}
-
-export async function fetchInvoicesPages(query: string) {
-  try {
-    const data = await sql`SELECT COUNT(*)
-    FROM invoices
-    JOIN customers ON invoices.customer_id = customers.id
-    WHERE
-      customers.name ILIKE ${`%${query}%`} OR
-      customers.email ILIKE ${`%${query}%`} OR
-      invoices.amount::text ILIKE ${`%${query}%`} OR
-      invoices.date::text ILIKE ${`%${query}%`} OR
-      invoices.status ILIKE ${`%${query}%`}
-  `;
-
-    const totalPages = Math.ceil(Number(data[0].count) / ITEMS_PER_PAGE);
-    return totalPages;
-  } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch total number of invoices.');
-  }
-}
-
-export async function fetchInvoiceById(id: string) {
-  try {
-    const data = await sql<InvoiceForm[]>`
-      SELECT
-        invoices.id,
-        invoices.customer_id,
-        invoices.amount,
-        invoices.status
-      FROM invoices
-      WHERE invoices.id = ${id};
-    `;
-
-    const invoice = data.map((invoice) => ({
-      ...invoice,
-      // Convert amount from cents to dollars
-      amount: invoice.amount / 100,
-    }));
-
-    return invoice[0];
-  } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch invoice.');
-  }
-}
-
-export async function fetchCustomers() {
-  try {
-    const customers = await sql<CustomerField[]>`
-      SELECT
-        id,
-        name
-      FROM customers
-      ORDER BY name ASC
-    `;
-
-    return customers;
-  } catch (err) {
-    console.error('Database Error:', err);
-    throw new Error('Failed to fetch all customers.');
-  }
-}
-
-export async function fetchFilteredCustomers(query: string) {
-  try {
-    const data = await sql<CustomersTableType[]>`
-		SELECT
-		  customers.id,
-		  customers.name,
-		  customers.email,
-		  customers.image_url,
-		  COUNT(invoices.id) AS total_invoices,
-		  SUM(CASE WHEN invoices.status = 'pending' THEN invoices.amount ELSE 0 END) AS total_pending,
-		  SUM(CASE WHEN invoices.status = 'paid' THEN invoices.amount ELSE 0 END) AS total_paid
-		FROM customers
-		LEFT JOIN invoices ON customers.id = invoices.customer_id
-		WHERE
-		  customers.name ILIKE ${`%${query}%`} OR
-        customers.email ILIKE ${`%${query}%`}
-		GROUP BY customers.id, customers.name, customers.email, customers.image_url
-		ORDER BY customers.name ASC
-	  `;
-
-    const customers = data.map((customer) => ({
-      ...customer,
-      total_pending: formatCurrency(customer.total_pending),
-      total_paid: formatCurrency(customer.total_paid),
-    }));
-
-    return customers;
-  } catch (err) {
-    console.error('Database Error:', err);
-    throw new Error('Failed to fetch customer table.');
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data bandara.');
   }
 }
