@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation';
 
 const users = [
   { username: 'Andika.05', password: '12345', role: 'Supervisor', redirect: '/dashboard' },
-  { username: 'Kerenn', password: '12345', role: 'Operator', redirect: '/dashboard' },
-  { username: 'Paus terbang', password: '12345', role: 'Admin', redirect: '/dashboard' },
 ];
 
 export default function LoginPage() {
@@ -98,8 +96,6 @@ export default function LoginPage() {
         <div className="bg-blue-50 rounded-lg p-4 text-xs text-blue-700">
           <p className="font-bold mb-1">Akun demo:</p>
           <p>Andika.05 / 12345 (Supervisor)</p>
-          <p>Kerenn / 12345 (Operator)</p>
-          <p>Paus terbang / 12345 (Admin)</p>
         </div>
       </div>
     </div>
