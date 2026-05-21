@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS shipments (
   penerima_id     UUID          NOT NULL REFERENCES customers(id),
   jenis_barang    VARCHAR(100)  NOT NULL,
   berat_kg        DECIMAL(8,2)  NOT NULL,
+  harga_per_kg    DECIMAL(10,2) NOT NULL DEFAULT 0,  -- tarif per kg sesuai layanan
+  total_biaya     DECIMAL(12,2) NOT NULL DEFAULT 0,  -- berat_kg × harga_per_kg
   layanan         VARCHAR(50)   NOT NULL,
   status          VARCHAR(30)   NOT NULL DEFAULT 'Proses',
   tanggal_kirim   DATE          NOT NULL,
