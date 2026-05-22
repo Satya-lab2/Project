@@ -4,14 +4,11 @@ const shimmer =
 function FlightRowSkeleton() {
   return (
     <tr className="border-t">
-      <td className="px-5 py-3"><div className="h-4 w-16 rounded bg-gray-100" /></td>
-      <td className="px-5 py-3"><div className="h-4 w-28 rounded bg-gray-100" /></td>
-      <td className="px-5 py-3"><div className="h-4 w-20 rounded bg-gray-100" /></td>
-      <td className="px-5 py-3"><div className="h-4 w-28 rounded bg-gray-100" /></td>
-      <td className="px-5 py-3"><div className="h-4 w-12 rounded bg-gray-100" /></td>
-      <td className="px-5 py-3"><div className="h-4 w-12 rounded bg-gray-100" /></td>
-      <td className="px-5 py-3"><div className="h-5 w-16 rounded-full bg-gray-100" /></td>
-      <td className="px-5 py-3"><div className="h-7 w-14 rounded bg-gray-100" /></td>
+      {Array.from({ length: 8 }).map((_, j) => (
+        <td key={j} className="px-5 py-3">
+          <div className="h-4 w-16 rounded bg-gray-100" />
+        </td>
+      ))}
     </tr>
   );
 }
@@ -39,14 +36,21 @@ export default function StatusLoading() {
         </div>
       </div>
 
-      {/* Table Skeleton */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      {/* Table Skeleton dengan search */}
+      <div className={`${shimmer} relative overflow-hidden bg-white rounded-xl shadow-sm`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="h-5 w-52 rounded bg-gray-200 animate-pulse" />
-          <div className="flex gap-2">
-            <div className="h-6 w-14 rounded-full bg-gray-100 animate-pulse" />
-            <div className="h-6 w-20 rounded-full bg-gray-100 animate-pulse" />
+          <div>
+            <div className="h-5 w-52 rounded bg-gray-200 mb-1" />
+            <div className="h-3 w-32 rounded bg-gray-100" />
           </div>
+          <div className="flex gap-2">
+            <div className="h-6 w-14 rounded-full bg-gray-100" />
+            <div className="h-6 w-20 rounded-full bg-gray-100" />
+          </div>
+        </div>
+        {/* Search skeleton */}
+        <div className="px-5 py-3">
+          <div className="h-10 w-full rounded-md bg-gray-200" />
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -59,9 +63,18 @@ export default function StatusLoading() {
             </tr>
           </thead>
           <tbody className="bg-white">
-            {Array.from({ length: 6 }).map((_, i) => <FlightRowSkeleton key={i} />)}
+            {Array.from({ length: 5 }).map((_, i) => <FlightRowSkeleton key={i} />)}
           </tbody>
         </table>
+        {/* Pagination skeleton */}
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+          <div className="h-3 w-24 rounded bg-gray-100" />
+          <div className="flex gap-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-8 w-8 rounded-md bg-gray-200" />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
