@@ -162,3 +162,50 @@ export async function fetchAirports() {
     throw new Error('Gagal mengambil data bandara.');
   }
 }
+
+// ============================================================
+// SHIPMENTS — FILTERED & PAGINATED (for Search + Pagination)
+// ============================================================
+const ITEMS_PER_PAGE = 6;
+
+export async function fetchFilteredShipments(query: string, currentPage: number) {
+  const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+  try {
+    const data = await sql`
+      SELECT *
+      FROM shipments
+      WHERE
+        no_awb    ILIKE ${`%${query}%`} OR
+        pengirim  ILIKE ${`%${query}%`} OR
+        penerima  ILIKE ${`%${query}%`} OR
+        status    ILIKE ${`%${query}%`} OR
+        layanan   ILIKE ${`%${query}%`}
+      ORDER BY created_at DESC
+      LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
+    `;
+    return data;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data shipment.');
+  }
+}
+
+export async function fetchShipmentsPages(query: string) {
+  try {
+    const data = await sql`
+      SELECT COUNT(*)
+      FROM shipments
+      WHERE
+        no_awb    ILIKE ${`%${query}%`} OR
+        pengirim  ILIKE ${`%${query}%`} OR
+        penerima  ILIKE ${`%${query}%`} OR
+        status    ILIKE ${`%${query}%`} OR
+        layanan   ILIKE ${`%${query}%`}
+    `;
+    const totalPages = Math.ceil(Number(data[0].count) / ITEMS_PER_PAGE);
+    return totalPages;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal menghitung halaman shipment.');
+  }
+}
