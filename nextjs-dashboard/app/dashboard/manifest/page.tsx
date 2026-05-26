@@ -380,7 +380,7 @@ export default function ManifestPage() {
                   <option value="">— Belum ditentukan —</option>
                   {pesawatList.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.kode_penerbangan} · {p.maskapai} ({p.kota_asal}→{p.kota_tujuan})
+                      {p.kode_penerbangan} · {p.maskapai}
                     </option>
                   ))}
                 </select>

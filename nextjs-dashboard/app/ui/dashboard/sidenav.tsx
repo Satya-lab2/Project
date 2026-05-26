@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   HomeIcon,
   DocumentDuplicateIcon,
-  TruckIcon,
   PaperAirplaneIcon,
   ChevronLeftIcon,
   DocumentMagnifyingGlassIcon,
@@ -15,7 +14,6 @@ import { useState } from 'react';
 const links = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Kelola Shipment', href: '/dashboard/manifest', icon: DocumentDuplicateIcon },
-  { name: 'Kelola Kendaraan', href: '/dashboard/kendaraan', icon: TruckIcon },
   { name: 'Status Kargo', href: '/dashboard/status', icon: PaperAirplaneIcon },
   { name: 'Tracking AWB', href: '/dashboard/tracking', icon: DocumentMagnifyingGlassIcon },
 ];

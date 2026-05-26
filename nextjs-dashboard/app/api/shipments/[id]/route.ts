@@ -3,9 +3,21 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    const data = await sql`SELECT * FROM shipments WHERE id = ${id}`;
+    if (data.length === 0) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+    return NextResponse.json({ data: data[0] });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Gagal mengambil data' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
     const body = await request.json();
     const {
       tanggal_kirim, nama_pengirim, nama_penerima, no_telepon,
@@ -39,10 +51,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
-    await sql`DELETE FROM shipments WHERE id = ${id}`;
+    const { id } = await params;
+    const result = await sql`DELETE FROM shipments WHERE id = ${id} RETURNING id`;
+    if (result.length === 0) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
     return NextResponse.json({ message: 'Shipment berhasil dihapus' });
   } catch (error) {
     console.error(error);

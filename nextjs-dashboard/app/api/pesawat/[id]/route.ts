@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 // GET — ambil detail pesawat + daftar AWB di dalamnya
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const [pesawat, awbList] = await Promise.all([
       sql`SELECT * FROM pesawat WHERE id = ${id}`,
       sql`SELECT * FROM shipments WHERE pesawat_id = ${id} ORDER BY created_at DESC`,
@@ -20,9 +20,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT — update pesawat
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { nama_pesawat, kode_penerbangan, maskapai, kota_asal, kota_tujuan, kapasitas_muatan, status_pesawat } = body;
 
@@ -50,10 +50,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE — hapus pesawat
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
-    await sql`DELETE FROM pesawat WHERE id = ${id}`;
+    const { id } = await params;
+    const result = await sql`DELETE FROM pesawat WHERE id = ${id} RETURNING id`;
+    if (result.length === 0) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
     return NextResponse.json({ message: 'Pesawat berhasil dihapus' });
   } catch (error) {
     console.error(error);
