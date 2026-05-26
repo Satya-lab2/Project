@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    // ✅ Tambahkan await di sini
+    const { id } = await params; 
+    
     const body = await request.json();
     const { nama_kendaraan, jenis_kendaraan, plat_nomor, kapasitas_muatan, status_kendaraan } = body;
 
@@ -27,9 +29,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    // ✅ Tambahkan await di sini juga
+    const { id } = await params; 
+    
     await sql`DELETE FROM kendaraan WHERE id = ${id}`;
     return NextResponse.json({ message: 'Data berhasil dihapus' });
   } catch (error) {
