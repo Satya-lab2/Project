@@ -1,181 +1,227 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useSearchParams, usePathname, useRouter } from 'next/navigation';
-import { MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { useDebouncedCallback } from 'use-debounce';
+import { useState, useEffect, useCallback } from 'react';
+import { MagnifyingGlassIcon, EyeIcon } from '@heroicons/react/24/outline';
 
-const flights = [
-  { no: 'GA-452', maskapai: 'Garuda Indonesia', rute: 'CGK→SUB', etd: '08:30', eta: '10:15', totalKargo: '842 kg', awb: 18, status: 'On Time' },
-  { no: 'GA-716', maskapai: 'Garuda Indonesia', rute: 'CGK→DPS', etd: '11:15', eta: '13:30', totalKargo: '1.240 kg', awb: 34, status: 'Boarding' },
-  { no: 'ID-8821', maskapai: 'Batik Air', rute: 'CGK→MDC', etd: '13:00', eta: '17:45', totalKargo: '560 kg', awb: 12, status: 'Delayed +45m' },
-  { no: 'JT-633', maskapai: 'Lion Air', rute: 'CGK→UPG', etd: '06:45', eta: '10:10', totalKargo: '1.820 kg', awb: 41, status: 'Departed' },
-  { no: 'SJ-220', maskapai: 'Sriwijaya Air', rute: 'CGK→PDG', etd: '14:30', eta: '16:00', totalKargo: '390 kg', awb: 9, status: 'On Time' },
-  { no: 'JT-771', maskapai: 'Lion Air', rute: 'CGK→BDJ', etd: '07:20', eta: '10:50', totalKargo: '2.100 kg', awb: 28, status: 'Departed' },
-  { no: 'GA-320', maskapai: 'Garuda Indonesia', rute: 'CGK→LOP', etd: '09:00', eta: '11:15', totalKargo: '670 kg', awb: 15, status: 'On Time' },
-  { no: 'JT-950', maskapai: 'Lion Air', rute: 'CGK→BPN', etd: '10:45', eta: '14:20', totalKargo: '980 kg', awb: 22, status: 'Boarding' },
-];
-
-const ITEMS_PER_PAGE = 5;
-
-const statusMap: Record<string, string> = {
-  'On Time': 'bg-green-100 text-green-700',
-  'Boarding': 'bg-blue-100 text-blue-700',
-  'Delayed +45m': 'bg-orange-100 text-orange-700',
-  'Departed': 'bg-gray-100 text-gray-600',
+type Pesawat = {
+  id: string;
+  nama_pesawat: string;
+  kode_penerbangan: string;
+  maskapai: string;
+  kota_asal: string;
+  kota_tujuan: string;
+  kapasitas_muatan: number;
+  status_pesawat: string;
+  jumlah_awb: number;
+  total_berat: number;
 };
 
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${statusMap[status] || 'bg-gray-100'}`}>
-      {status}
-    </span>
-  );
-}
+type AWB = {
+  id: string;
+  no_resi: string;
+  nama_pengirim: string;
+  nama_penerima: string;
+  jenis_barang: string;
+  berat_barang: number;
+  status_pengiriman: string;
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  'Tersedia': 'bg-green-100 text-green-700',
+  'Terbang': 'bg-blue-100 text-blue-700',
+  'Maintenance': 'bg-red-100 text-red-700',
+};
+
+const AWB_STATUS_COLORS: Record<string, string> = {
+  'Diproses': 'bg-blue-100 text-blue-700',
+  'Dalam Pengiriman': 'bg-yellow-100 text-yellow-700',
+  'Sampai Tujuan': 'bg-green-100 text-green-700',
+  'Pending': 'bg-orange-100 text-orange-700',
+  'Selesai': 'bg-emerald-100 text-emerald-700',
+};
 
 export default function FlightTable() {
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const { replace } = useRouter();
+  const [pesawat, setPesawat] = useState<Pesawat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [awbList, setAwbList] = useState<AWB[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailPesawat, setDetailPesawat] = useState<Pesawat | null>(null);
 
-  const query = searchParams.get('fquery') || '';
-  const currentPage = Number(searchParams.get('fpage')) || 1;
+  const fetchPesawat = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/pesawat');
+      const data = await res.json();
+      setPesawat(data.data || []);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, []);
 
-  const handleSearch = useDebouncedCallback((term: string) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('fpage', '1');
-    if (term) {
-      params.set('fquery', term);
-    } else {
-      params.delete('fquery');
-    }
-    replace(`${pathname}?${params.toString()}`);
-  }, 300);
+  useEffect(() => { fetchPesawat(); }, [fetchPesawat]);
 
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('fpage', String(page));
-    replace(`${pathname}?${params.toString()}`);
-  };
+  async function openDetail(p: Pesawat) {
+    setDetailPesawat(p);
+    setDetailId(p.id);
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`/api/pesawat/${p.id}`);
+      const data = await res.json();
+      setAwbList(data.awbList || []);
+    } catch { setAwbList([]); }
+    finally { setLoadingDetail(false); }
+  }
 
-  const filtered = useMemo(() => {
+  const filtered = pesawat.filter(p => {
     const q = query.toLowerCase();
-    if (!q) return flights;
-    return flights.filter(f =>
-      f.no.toLowerCase().includes(q) ||
-      f.maskapai.toLowerCase().includes(q) ||
-      f.rute.toLowerCase().includes(q) ||
-      f.status.toLowerCase().includes(q)
-    );
-  }, [query]);
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const safePage = Math.min(currentPage, totalPages || 1);
-  const paginated = filtered.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+    return !q || p.kode_penerbangan.toLowerCase().includes(q) || p.maskapai.toLowerCase().includes(q) ||
+      p.kota_asal.toLowerCase().includes(q) || p.kota_tujuan.toLowerCase().includes(q) || p.status_pesawat.toLowerCase().includes(q);
+  });
 
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div>
-          <h2 className="font-bold text-gray-800">Status Kargo per Penerbangan</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {filtered.length} dari {flights.length} penerbangan
-          </p>
+          <h2 className="font-bold text-gray-800">Status Kargo per Pesawat</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{filtered.length} dari {pesawat.length} pesawat — data dari database</p>
         </div>
-        <div className="flex gap-2">
-          <span className="flex items-center gap-1.5 text-xs text-green-600 font-semibold bg-green-50 px-3 py-1 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            Live
-          </span>
-          <button className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-semibold hover:bg-blue-700">
-            Export CSV
-          </button>
-        </div>
+        <span className="flex items-center gap-1.5 text-xs text-green-600 font-semibold bg-green-50 px-3 py-1 rounded-full">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          Live
+        </span>
       </div>
 
       <div className="px-5 py-3">
-        <div className="relative flex flex-1">
-          <label htmlFor="flight-search" className="sr-only">Search penerbangan</label>
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
-            id="flight-search"
-            className="peer block w-full rounded-md border border-gray-200 py-[9px] pl-10 text-sm outline-2 placeholder:text-gray-500 focus:border-blue-400"
-            placeholder="Cari no penerbangan, maskapai, rute, status..."
-            onChange={(e) => handleSearch(e.target.value)}
-            defaultValue={query}
+            className="w-full rounded-lg border border-gray-200 py-2.5 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-400"
+            placeholder="Cari kode penerbangan, maskapai, rute, status..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
           />
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
         </div>
       </div>
 
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-            <th className="px-5 py-3 text-left">No Penerbangan</th>
+            <th className="px-5 py-3 text-left">Kode</th>
             <th className="px-5 py-3 text-left">Maskapai</th>
             <th className="px-5 py-3 text-left">Rute</th>
-            <th className="px-5 py-3 text-left">Total Kargo</th>
-            <th className="px-5 py-3 text-left">ETD</th>
-            <th className="px-5 py-3 text-left">ETA</th>
+            <th className="px-5 py-3 text-left">Total AWB</th>
+            <th className="px-5 py-3 text-left">Berat Terisi</th>
+            <th className="px-5 py-3 text-left">Kapasitas</th>
             <th className="px-5 py-3 text-left">Status</th>
             <th className="px-5 py-3 text-left">Aksi</th>
           </tr>
         </thead>
         <tbody>
-          {paginated.length > 0 ? (
-            paginated.map((f, i) => (
-              <tr key={i} className="border-t hover:bg-blue-50/40 transition">
-                <td className="px-5 py-3 font-bold text-blue-600">{f.no}</td>
-                <td className="px-5 py-3">{f.maskapai}</td>
-                <td className="px-5 py-3 font-mono text-xs">{f.rute}</td>
-                <td className="px-5 py-3">{f.totalKargo} / {f.awb} AWB</td>
-                <td className="px-5 py-3">{f.etd}</td>
-                <td className="px-5 py-3">{f.eta}</td>
-                <td className="px-5 py-3"><StatusBadge status={f.status} /></td>
-                <td className="px-5 py-3">
-                  <button className="bg-blue-900 text-white text-xs px-3 py-1 rounded font-semibold hover:bg-blue-800">
-                    Detail
-                  </button>
-                </td>
+          {loading ? (
+            [...Array(5)].map((_, i) => (
+              <tr key={i} className="border-t">
+                {[...Array(8)].map((_, j) => (
+                  <td key={j} className="px-5 py-3"><div className="h-4 w-20 rounded bg-gray-100 animate-pulse" /></td>
+                ))}
               </tr>
             ))
-          ) : (
+          ) : filtered.length === 0 ? (
             <tr>
               <td colSpan={8} className="px-5 py-10 text-center text-gray-400 text-sm">
-                Tidak ada penerbangan yang cocok dengan pencarian
+                {query ? 'Tidak ada pesawat yang cocok dengan pencarian.' : 'Belum ada data pesawat.'}
               </td>
             </tr>
+          ) : (
+            filtered.map((p) => {
+              const pct = p.kapasitas_muatan > 0 ? Math.min(100, (Number(p.total_berat) / Number(p.kapasitas_muatan)) * 100) : 0;
+              return (
+                <tr key={p.id} className="border-t hover:bg-blue-50/40 transition">
+                  <td className="px-5 py-3 font-bold text-blue-600 font-mono">{p.kode_penerbangan}</td>
+                  <td className="px-5 py-3 text-gray-700">{p.maskapai}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-gray-600">{p.kota_asal} → {p.kota_tujuan}</td>
+                  <td className="px-5 py-3 font-bold text-indigo-600">{p.jumlah_awb} AWB</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${pct >= 90 ? 'bg-red-500' : pct >= 60 ? 'bg-yellow-400' : 'bg-green-500'}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-gray-600">{Number(p.total_berat).toLocaleString('id-ID')} kg</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-gray-600 text-xs">{Number(p.kapasitas_muatan).toLocaleString('id-ID')} kg</td>
+                  <td className="px-5 py-3">
+                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${STATUS_COLORS[p.status_pesawat] || 'bg-gray-100 text-gray-600'}`}>
+                      {p.status_pesawat}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    <button
+                      onClick={() => openDetail(p)}
+                      className="flex items-center gap-1 bg-blue-900 text-white text-xs px-3 py-1 rounded font-semibold hover:bg-blue-800"
+                    >
+                      <EyeIcon className="w-3 h-3" /> Detail
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500">Halaman {safePage} dari {totalPages}</p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handlePageChange(safePage - 1)}
-              disabled={safePage <= 1}
-              className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                className={`w-8 h-8 rounded-md text-sm font-medium transition-colors
-                  ${page === safePage ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => handlePageChange(safePage + 1)}
-              disabled={safePage >= totalPages}
-              className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronRightIcon className="w-4 h-4 text-gray-600" />
-            </button>
+      {/* DETAIL AWB MODAL */}
+      {detailId && detailPesawat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-6" style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-bold text-gray-800">✈️ {detailPesawat.kode_penerbangan} — Manifest AWB</h2>
+                <p className="text-xs text-gray-500">{detailPesawat.maskapai} · {detailPesawat.kota_asal} → {detailPesawat.kota_tujuan}</p>
+              </div>
+              <button onClick={() => { setDetailId(null); setDetailPesawat(null); }} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
+            </div>
+            <div className="px-6 py-4">
+              {loadingDetail ? (
+                <div className="space-y-2">{[...Array(4)].map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
+              ) : awbList.length === 0 ? (
+                <p className="text-center text-gray-400 py-8 text-sm">Belum ada AWB dalam pesawat ini.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-gray-50">
+                      <tr className="text-gray-500 uppercase">
+                        <th className="px-3 py-2 text-left">No AWB</th>
+                        <th className="px-3 py-2 text-left">Pengirim</th>
+                        <th className="px-3 py-2 text-left">Penerima</th>
+                        <th className="px-3 py-2 text-left">Barang</th>
+                        <th className="px-3 py-2 text-left">Berat</th>
+                        <th className="px-3 py-2 text-left">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {awbList.map(a => (
+                        <tr key={a.id} className="border-t border-gray-50 hover:bg-blue-50/30">
+                          <td className="px-3 py-2 font-mono text-blue-600 font-semibold">{a.no_resi}</td>
+                          <td className="px-3 py-2 text-gray-700">{a.nama_pengirim}</td>
+                          <td className="px-3 py-2 text-gray-700">{a.nama_penerima}</td>
+                          <td className="px-3 py-2 text-gray-600">{a.jenis_barang}</td>
+                          <td className="px-3 py-2 text-gray-600">{a.berat_barang} kg</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-2 py-0.5 rounded-full font-semibold ${AWB_STATUS_COLORS[a.status_pengiriman] || 'bg-gray-100 text-gray-600'}`}>
+                              {a.status_pengiriman}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
+              <button onClick={() => { setDetailId(null); setDetailPesawat(null); }} className="bg-gray-100 text-gray-700 px-5 py-2 rounded-lg hover:bg-gray-200 text-sm font-semibold">Tutup</button>
+            </div>
           </div>
         </div>
       )}

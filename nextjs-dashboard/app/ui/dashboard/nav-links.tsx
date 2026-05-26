@@ -5,15 +5,13 @@ import { usePathname } from 'next/navigation';
 import {
   HomeIcon,
   DocumentDuplicateIcon,
-  TruckIcon,
   PaperAirplaneIcon,
 } from '@heroicons/react/24/outline';
 
 const links = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Shipment', href: '/dashboard/manifest', icon: DocumentDuplicateIcon },
-  { name: 'Kendaraan', href: '/dashboard/kendaraan', icon: TruckIcon },
-  { name: 'Status Flight', href: '/dashboard/status', icon: PaperAirplaneIcon },
+  { name: 'Kelola AWB', href: '/dashboard/manifest', icon: DocumentDuplicateIcon },
+  { name: 'Kelola Pesawat', href: '/dashboard/pesawat', icon: PaperAirplaneIcon },
 ];
 
 export default function NavLinks() {

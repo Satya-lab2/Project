@@ -2,17 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
-import {
-  UserIcon,
-  ArrowRightOnRectangleIcon,
-} from '@heroicons/react/24/outline';
+import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 
 type Stats = {
   total_pengiriman: number;
   dalam_pengiriman: number;
   selesai: number;
   pending: number;
-  total_kendaraan: number;
+  total_pesawat: number;
 };
 
 type Shipment = {
@@ -27,6 +24,7 @@ type Shipment = {
   jenis_pengiriman: string;
   status_pengiriman: string;
   tanggal_kirim: string;
+  kode_penerbangan?: string;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -43,7 +41,6 @@ export default function DashboardPage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -63,9 +60,7 @@ export default function DashboardPage() {
     return () => { clearInterval(interval); document.removeEventListener('mousedown', handleClickOutside); };
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
     setLoading(true);
@@ -149,7 +144,7 @@ export default function DashboardPage() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-blue-500">
-            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Total Pengiriman</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Total AWB</p>
             <p className="text-3xl font-bold text-gray-800 mt-1">{stats?.total_pengiriman ?? 0}</p>
           </div>
           <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-yellow-500">
@@ -161,8 +156,8 @@ export default function DashboardPage() {
             <p className="text-3xl font-bold text-gray-800 mt-1">{stats?.selesai ?? 0}</p>
           </div>
           <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-purple-500">
-            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Total Kendaraan</p>
-            <p className="text-3xl font-bold text-gray-800 mt-1">{stats?.total_kendaraan ?? 0}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Total Pesawat</p>
+            <p className="text-3xl font-bold text-gray-800 mt-1">{stats?.total_pesawat ?? 0}</p>
           </div>
         </div>
       )}
@@ -171,7 +166,7 @@ export default function DashboardPage() {
       <div className="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h2 className="font-bold text-gray-800">Pengiriman Terbaru</h2>
+            <h2 className="font-bold text-gray-800">AWB Terbaru</h2>
             <p className="text-xs text-gray-500 mt-0.5">Data langsung dari database</p>
           </div>
           <Link href="/dashboard/manifest" className="text-xs bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold">
@@ -188,11 +183,11 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-                  <th className="px-5 py-3 text-left">No Resi</th>
+                  <th className="px-5 py-3 text-left">No AWB</th>
                   <th className="px-5 py-3 text-left">Pengirim</th>
                   <th className="px-5 py-3 text-left">Penerima</th>
                   <th className="px-5 py-3 text-left">Rute</th>
-                  <th className="px-5 py-3 text-left">Berat</th>
+                  <th className="px-5 py-3 text-left">Pesawat</th>
                   <th className="px-5 py-3 text-left">Status</th>
                 </tr>
               </thead>
@@ -200,7 +195,7 @@ export default function DashboardPage() {
                 {shipments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-10 text-gray-400">
-                      Belum ada data pengiriman. <Link href="/seed" className="text-blue-500 underline">Seed database</Link> terlebih dahulu.
+                      Belum ada data. <Link href="/seed" className="text-blue-500 underline">Seed database</Link> terlebih dahulu.
                     </td>
                   </tr>
                 ) : (
@@ -210,7 +205,7 @@ export default function DashboardPage() {
                       <td className="px-5 py-3 text-gray-700 text-xs">{s.nama_pengirim}</td>
                       <td className="px-5 py-3 text-gray-700 text-xs">{s.nama_penerima}</td>
                       <td className="px-5 py-3 text-gray-600 text-xs">{s.kota_asal} → {s.kota_tujuan}</td>
-                      <td className="px-5 py-3 text-gray-600 text-xs">{s.berat_barang} kg</td>
+                      <td className="px-5 py-3 text-gray-600 text-xs font-mono">{s.kode_penerbangan || '—'}</td>
                       <td className="px-5 py-3">
                         <span className={`text-xs px-2 py-1 rounded-full font-semibold ${STATUS_COLORS[s.status_pengiriman] || 'bg-gray-100 text-gray-600'}`}>
                           {s.status_pengiriman}
@@ -226,21 +221,16 @@ export default function DashboardPage() {
       </div>
 
       {/* QUICK LINKS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <Link href="/dashboard/manifest" className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow border border-gray-100 text-center group">
           <div className="text-3xl mb-2">📦</div>
-          <div className="font-bold text-gray-800 text-sm">Kelola Shipment</div>
-          <div className="text-xs text-gray-500 mt-1">CRUD pengiriman</div>
+          <div className="font-bold text-gray-800 text-sm">Kelola AWB</div>
+          <div className="text-xs text-gray-500 mt-1">CRUDS pengiriman kargo udara</div>
         </Link>
-        <Link href="/dashboard/kendaraan" className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow border border-gray-100 text-center group">
-          <div className="text-3xl mb-2">🚛</div>
-          <div className="font-bold text-gray-800 text-sm">Kelola Kendaraan</div>
-          <div className="text-xs text-gray-500 mt-1">CRUD kendaraan</div>
-        </Link>
-        <Link href="/dashboard/status" className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow border border-gray-100 text-center group">
+        <Link href="/dashboard/pesawat" className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow border border-gray-100 text-center group">
           <div className="text-3xl mb-2">✈️</div>
-          <div className="font-bold text-gray-800 text-sm">Status Penerbangan</div>
-          <div className="text-xs text-gray-500 mt-1">Lihat status flight</div>
+          <div className="font-bold text-gray-800 text-sm">Kelola Pesawat</div>
+          <div className="text-xs text-gray-500 mt-1">Armada & manifest AWB per pesawat</div>
         </Link>
       </div>
     </div>
