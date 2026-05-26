@@ -5,11 +5,9 @@ export default function Loading() {
         <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
         <div className="h-10 w-36 bg-gray-200 rounded-lg animate-pulse" />
       </div>
-      <div className="h-10 w-full bg-gray-200 rounded-lg animate-pulse mb-4" />
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="h-12 bg-blue-900 animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="h-12 border-t border-gray-50 animate-pulse" style={{ background: i % 2 === 0 ? '#f9fafb' : 'white' }} />
+          <div key={i} className="h-40 bg-white rounded-xl shadow-sm animate-pulse" />
         ))}
       </div>
     </div>

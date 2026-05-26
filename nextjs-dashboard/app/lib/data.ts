@@ -3,58 +3,41 @@ import postgres from 'postgres';
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 // ============================================================
-// FLIGHTS
+// DASHBOARD STATS
 // ============================================================
-export async function fetchFlights() {
+export async function fetchDashboardStats() {
   try {
-    const data = await sql`
-      SELECT
-        f.id, f.no_penerbangan, f.maskapai,
-        f.asal, f.tujuan, f.etd, f.eta,
-        f.tanggal, f.status, f.kapasitas_kg,
-        a1.kota AS kota_asal,
-        a2.kota AS kota_tujuan,
-        COUNT(m.shipment_id) AS total_awb,
-        COALESCE(SUM(s.berat_kg), 0) AS total_kargo_kg
-      FROM flights f
-      JOIN airports a1 ON f.asal   = a1.kode
-      JOIN airports a2 ON f.tujuan = a2.kode
-      LEFT JOIN manifest m  ON m.flight_id   = f.id
-      LEFT JOIN shipments s ON s.id          = m.shipment_id
-      GROUP BY f.id, a1.kota, a2.kota
-      ORDER BY f.etd ASC
-    `;
-    return data;
+    const [shipmentStats, kendaraanStats] = await Promise.all([
+      sql`
+        SELECT
+          COUNT(*) AS total_pengiriman,
+          SUM(CASE WHEN status_pengiriman = 'Dalam Pengiriman' THEN 1 ELSE 0 END) AS dalam_pengiriman,
+          SUM(CASE WHEN status_pengiriman = 'Selesai' THEN 1 ELSE 0 END) AS selesai,
+          SUM(CASE WHEN status_pengiriman = 'Pending' THEN 1 ELSE 0 END) AS pending
+        FROM shipments
+      `,
+      sql`SELECT COUNT(*) AS total_kendaraan FROM kendaraan`,
+    ]);
+    return {
+      total_pengiriman: Number(shipmentStats[0].total_pengiriman),
+      dalam_pengiriman: Number(shipmentStats[0].dalam_pengiriman),
+      selesai: Number(shipmentStats[0].selesai),
+      pending: Number(shipmentStats[0].pending),
+      total_kendaraan: Number(kendaraanStats[0].total_kendaraan),
+    };
   } catch (error) {
     console.error('DB Error:', error);
-    throw new Error('Gagal mengambil data penerbangan.');
-  }
-}
-
-export async function fetchFlightById(id: string) {
-  try {
-    const data = await sql`
-      SELECT f.*, a1.nama AS nama_asal, a2.nama AS nama_tujuan
-      FROM flights f
-      JOIN airports a1 ON f.asal   = a1.kode
-      JOIN airports a2 ON f.tujuan = a2.kode
-      WHERE f.id = ${id}
-    `;
-    return data[0];
-  } catch (error) {
-    console.error('DB Error:', error);
-    throw new Error('Gagal mengambil detail penerbangan.');
+    return { total_pengiriman: 0, dalam_pengiriman: 0, selesai: 0, pending: 0, total_kendaraan: 0 };
   }
 }
 
 // ============================================================
-// SHIPMENTS (AWB)
+// SHIPMENTS — READ ALL
 // ============================================================
 export async function fetchShipments() {
   try {
     const data = await sql`
-      SELECT * FROM shipments
-      ORDER BY created_at DESC
+      SELECT * FROM shipments ORDER BY created_at DESC
     `;
     return data;
   } catch (error) {
@@ -63,123 +46,24 @@ export async function fetchShipments() {
   }
 }
 
-export async function fetchShipmentByAwb(no_awb: string) {
-  try {
-    const data = await sql`
-      SELECT * FROM shipments
-      WHERE no_awb = ${no_awb}
-    `;
-    return data[0] ?? null;
-  } catch (error) {
-    console.error('DB Error:', error);
-    throw new Error('Gagal mencari AWB.');
-  }
-}
-
 // ============================================================
-// TRACKING EVENTS
+// SHIPMENTS — FILTERED & PAGINATED (Search + Pagination)
 // ============================================================
-export async function fetchTrackingByAwb(no_awb: string) {
-  try {
-    const data = await sql`
-      SELECT te.waktu, te.lokasi, te.keterangan, te.urutan
-      FROM tracking_events te
-      JOIN shipments s ON s.id = te.shipment_id
-      WHERE s.no_awb = ${no_awb}
-      ORDER BY te.urutan ASC
-    `;
-    return data;
-  } catch (error) {
-    console.error('DB Error:', error);
-    throw new Error('Gagal mengambil data tracking.');
-  }
-}
-
-// ============================================================
-// MANIFEST
-// ============================================================
-export async function fetchManifestByFlight(flight_id: string) {
-  try {
-    const data = await sql`
-      SELECT
-        s.no_awb, s.pengirim, s.penerima,
-        s.jenis_barang, s.berat_kg, s.layanan, s.status,
-        m.posisi_muat
-      FROM manifest m
-      JOIN shipments s ON s.id = m.shipment_id
-      WHERE m.flight_id = ${flight_id}
-      ORDER BY s.no_awb ASC
-    `;
-    return data;
-  } catch (error) {
-    console.error('DB Error:', error);
-    throw new Error('Gagal mengambil manifest penerbangan.');
-  }
-}
-
-// ============================================================
-// DASHBOARD SUMMARY
-// ============================================================
-export async function fetchDashboardStats() {
-  try {
-    const [flightStats, shipmentStats] = await Promise.all([
-      sql`
-        SELECT
-          COUNT(*) AS total_penerbangan,
-          SUM(CASE WHEN status = 'Departed' OR status = 'Arrived' THEN 1 ELSE 0 END) AS sudah_berangkat,
-          SUM(CASE WHEN status = 'Delayed' THEN 1 ELSE 0 END) AS delayed
-        FROM flights
-        WHERE tanggal = CURRENT_DATE
-      `,
-      sql`
-        SELECT
-          COUNT(*) AS total_awb,
-          SUM(berat_kg) AS total_kg,
-          SUM(CASE WHEN status = 'Selesai' THEN 1 ELSE 0 END) AS selesai,
-          SUM(CASE WHEN status = 'Dalam Perjalanan' THEN 1 ELSE 0 END) AS dalam_perjalanan
-        FROM shipments
-      `,
-    ]);
-    return {
-      flights: flightStats[0],
-      shipments: shipmentStats[0],
-    };
-  } catch (error) {
-    console.error('DB Error:', error);
-    throw new Error('Gagal mengambil statistik dashboard.');
-  }
-}
-
-// ============================================================
-// AIRPORTS
-// ============================================================
-export async function fetchAirports() {
-  try {
-    const data = await sql`SELECT * FROM airports ORDER BY kode ASC`;
-    return data;
-  } catch (error) {
-    console.error('DB Error:', error);
-    throw new Error('Gagal mengambil data bandara.');
-  }
-}
-
-// ============================================================
-// SHIPMENTS — FILTERED & PAGINATED (for Search + Pagination)
-// ============================================================
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 8;
 
 export async function fetchFilteredShipments(query: string, currentPage: number) {
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
   try {
     const data = await sql`
-      SELECT *
-      FROM shipments
+      SELECT * FROM shipments
       WHERE
-        no_awb    ILIKE ${`%${query}%`} OR
-        pengirim  ILIKE ${`%${query}%`} OR
-        penerima  ILIKE ${`%${query}%`} OR
-        status    ILIKE ${`%${query}%`} OR
-        layanan   ILIKE ${`%${query}%`}
+        no_resi           ILIKE ${`%${query}%`} OR
+        nama_pengirim     ILIKE ${`%${query}%`} OR
+        nama_penerima     ILIKE ${`%${query}%`} OR
+        jenis_barang      ILIKE ${`%${query}%`} OR
+        status_pengiriman ILIKE ${`%${query}%`} OR
+        kota_asal         ILIKE ${`%${query}%`} OR
+        kota_tujuan       ILIKE ${`%${query}%`}
       ORDER BY created_at DESC
       LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     `;
@@ -193,19 +77,68 @@ export async function fetchFilteredShipments(query: string, currentPage: number)
 export async function fetchShipmentsPages(query: string) {
   try {
     const data = await sql`
-      SELECT COUNT(*)
-      FROM shipments
+      SELECT COUNT(*) FROM shipments
       WHERE
-        no_awb    ILIKE ${`%${query}%`} OR
-        pengirim  ILIKE ${`%${query}%`} OR
-        penerima  ILIKE ${`%${query}%`} OR
-        status    ILIKE ${`%${query}%`} OR
-        layanan   ILIKE ${`%${query}%`}
+        no_resi           ILIKE ${`%${query}%`} OR
+        nama_pengirim     ILIKE ${`%${query}%`} OR
+        nama_penerima     ILIKE ${`%${query}%`} OR
+        jenis_barang      ILIKE ${`%${query}%`} OR
+        status_pengiriman ILIKE ${`%${query}%`} OR
+        kota_asal         ILIKE ${`%${query}%`} OR
+        kota_tujuan       ILIKE ${`%${query}%`}
     `;
-    const totalPages = Math.ceil(Number(data[0].count) / ITEMS_PER_PAGE);
-    return totalPages;
+    return Math.ceil(Number(data[0].count) / ITEMS_PER_PAGE);
   } catch (error) {
     console.error('DB Error:', error);
     throw new Error('Gagal menghitung halaman shipment.');
   }
+}
+
+// ============================================================
+// SHIPMENTS — GET BY ID
+// ============================================================
+export async function fetchShipmentById(id: string) {
+  try {
+    const data = await sql`SELECT * FROM shipments WHERE id = ${id}`;
+    return data[0] ?? null;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data shipment.');
+  }
+}
+
+// ============================================================
+// KENDARAAN — READ ALL
+// ============================================================
+export async function fetchKendaraan() {
+  try {
+    const data = await sql`SELECT * FROM kendaraan ORDER BY created_at DESC`;
+    return data;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data kendaraan.');
+  }
+}
+
+// ============================================================
+// KENDARAAN — GET BY ID
+// ============================================================
+export async function fetchKendaraanById(id: string) {
+  try {
+    const data = await sql`SELECT * FROM kendaraan WHERE id = ${id}`;
+    return data[0] ?? null;
+  } catch (error) {
+    console.error('DB Error:', error);
+    throw new Error('Gagal mengambil data kendaraan.');
+  }
+}
+
+// ============================================================
+// HELPER — Generate No Resi
+// ============================================================
+export async function generateNoResi() {
+  const prefix = 'KRG';
+  const ts = Date.now().toString().slice(-7);
+  const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `${prefix}-${ts}${rand}`;
 }
