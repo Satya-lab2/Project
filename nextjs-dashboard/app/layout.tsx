@@ -1,14 +1,19 @@
 import '@/app/ui/global.css';
 import 'leaflet/dist/leaflet.css';
 import { inter } from '@/app/ui/fonts';
+import type { Metadata } from 'next';
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const metadata: Metadata = {
+  title: {
+    template: '%s | SkySend Expedition',
+    default: 'SkySend Expedition — Air Cargo System',
+  },
+  description: 'Sistem Informasi Manajemen Kargo Udara — SkySend Expedition',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="id">
       <body className={`${inter.className} antialiased`}>{children}</body>
     </html>
   );

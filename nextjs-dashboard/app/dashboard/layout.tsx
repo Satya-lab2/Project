@@ -1,4 +1,12 @@
 import SideNav from '@/app/ui/dashboard/sidenav';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: {
+    template: '%s | Dashboard — SkySend Expedition',
+    default: 'Dashboard | SkySend Expedition',
+  },
+};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (

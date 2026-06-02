@@ -1,3 +1,10 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Beranda',
+  description: 'SkySend Expedition — Layanan Kargo Udara Terpercaya untuk Pengiriman Domestik dan Internasional',
+};
+
 import Link from "next/link"
 import Image from 'next/image'
 
