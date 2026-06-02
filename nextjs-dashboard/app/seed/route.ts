@@ -207,18 +207,18 @@ async function seedTrackingLogs() {
   `;
 
   // Ambil semua shipment yang sudah ada untuk buat log awal
-  const shipments = await sql\`SELECT id, no_resi, status_pengiriman, kota_asal, created_at FROM shipments\`;
+  const shipments = await sql`SELECT id, no_resi, status_pengiriman, kota_asal, created_at FROM shipments`;
   for (const s of shipments) {
-    await sql\`
+    await sql`
       INSERT INTO tracking_logs (shipment_id, no_resi, status, keterangan, lokasi, updated_by, created_at)
       VALUES (
-        \${s.id}, \${s.no_resi}, \${s.status_pengiriman},
-        \${'Paket diterima dan diregistrasi di sistem'},
-        \${s.kota_asal + ' — Gudang Kargo'},
+        ${s.id}, ${s.no_resi}, ${s.status_pengiriman},
+        ${'Paket diterima dan diregistrasi di sistem'},
+        ${s.kota_asal + ' — Gudang Kargo'},
         'system',
-        \${s.created_at}
+        ${s.created_at}
       )
-    \`;
+    `;
   }
 }
 
