@@ -4,6 +4,7 @@ import postgres from 'postgres';
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 
 async function dropAll() {
+  await sql`DROP TABLE IF EXISTS tracking_logs CASCADE`;
   await sql`DROP TABLE IF EXISTS shipments CASCADE`;
   await sql`DROP TABLE IF EXISTS pesawat    CASCADE`;
   await sql`DROP TABLE IF EXISTS users      CASCADE`;
@@ -189,12 +190,45 @@ async function seedShipments(pesawatIds: Record<string, string>) {
   }
 }
 
+
+async function seedTrackingLogs() {
+  await sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS tracking_logs (
+      id          UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+      shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+      no_resi     VARCHAR(20)  NOT NULL,
+      status      VARCHAR(30)  NOT NULL,
+      keterangan  TEXT,
+      lokasi      VARCHAR(200),
+      updated_by  VARCHAR(100),
+      created_at  TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
+  // Ambil semua shipment yang sudah ada untuk buat log awal
+  const shipments = await sql\`SELECT id, no_resi, status_pengiriman, kota_asal, created_at FROM shipments\`;
+  for (const s of shipments) {
+    await sql\`
+      INSERT INTO tracking_logs (shipment_id, no_resi, status, keterangan, lokasi, updated_by, created_at)
+      VALUES (
+        \${s.id}, \${s.no_resi}, \${s.status_pengiriman},
+        \${'Paket diterima dan diregistrasi di sistem'},
+        \${s.kota_asal + ' — Gudang Kargo'},
+        'system',
+        \${s.created_at}
+      )
+    \`;
+  }
+}
+
 export async function GET() {
   try {
     await dropAll();
     await seedUsers();
     const pesawatIds = await seedPesawat();
     await seedShipments(pesawatIds);
+    await seedTrackingLogs();
     return Response.json({ message: 'Database kargo udara berhasil di-seed! ✅ Akses /dashboard untuk melihat data.' });
   } catch (error) {
     console.error('Seed error:', error);

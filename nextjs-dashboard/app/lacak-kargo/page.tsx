@@ -3,70 +3,79 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
-const awbData: Record<string, {
-  awb: string; status: string; pengirim: string; penerima: string; rute: string; berat: string; maskapai: string;
-  timeline: { label: string; time: string; location: string; done: boolean }[];
-}> = {
-  '601-48291087': {
-    awb: '601-48291087', status: 'Departed',
-    pengirim: 'CV Maju Bersama', penerima: 'Toko Bali Indah',
-    rute: 'CGK→DPS', berat: '22 kg', maskapai: 'GA-716',
-    timeline: [
-      { label: 'Received at Warehouse', time: '04 Apr 2026, 06:12 WIB', location: 'Gudang Terminal Kargo, Bandara Soedirman', done: true },
-      { label: 'Sortation', time: '04 Apr 2026, 07:45 WIB', location: 'Area Sortasi Terminal Kargo CGK', done: true },
-      { label: 'Loaded to Aircraft', time: '04 Apr 2026, 10:00 WIB', location: 'Apron GA-716, Gate K-7', done: true },
-      { label: 'Departed', time: '04 Apr 2026, 11:15 WIB', location: 'Take-off dari Bandara Soedirman', done: true },
-      { label: 'Arrived at Destination', time: 'Est. 04 Apr 2026, 13:30 WIB', location: 'Bandara Ngurah Rai, Bali', done: false },
-    ],
-  },
+type TrackingResult = {
+  no_resi: string;
+  nama_pengirim: string;
+  nama_penerima: string;
+  kota_asal: string;
+  kota_tujuan: string;
+  jenis_barang: string;
+  berat_barang: number;
+  jenis_pengiriman: string;
+  status_pengiriman: string;
+  tanggal_kirim: string;
+  pesawat?: { kode_penerbangan: string; maskapai: string; status_pesawat: string } | null;
+  timeline: { time: string; desc: string; done: boolean }[];
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  'Diproses': 'bg-blue-100 text-blue-700',
+  'Dalam Pengiriman': 'bg-yellow-100 text-yellow-700',
+  'Sampai Tujuan': 'bg-green-100 text-green-700',
+  'Pending': 'bg-orange-100 text-orange-700',
+  'Selesai': 'bg-emerald-100 text-emerald-700',
 };
 
 export default function LacakKargoPage() {
   const [awbInput, setAwbInput] = useState('');
-  const [result, setResult] = useState<typeof awbData[string] | null | 'not_found'>(null);
+  const [result, setResult] = useState<TrackingResult | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function handleTrack() {
+  async function handleTrack() {
     const key = awbInput.trim();
-    if (awbData[key]) setResult(awbData[key]);
-    else if (key) setResult('not_found');
+    if (!key) {
+      setError('Masukkan nomor AWB terlebih dahulu.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setResult(null);
+    try {
+      const res = await fetch(`/api/tracking?awb=${encodeURIComponent(key)}`);
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        setError(json.error || 'AWB tidak ditemukan.');
+      } else {
+        setResult(json.data);
+      }
+    } catch {
+      setError('Gagal menghubungi server. Coba lagi.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <main>
-        <nav className="fixed w-full z-50 bg-white shadow-md">
-            <div className="flex items-center justify-between pl-2 pr-10 py-4 w-full">
-                <div className="flex items-center">
-                    <Image
-                    src="/images/Logo.png"
-                    alt="logo"
-                    width={160}
-                    height={160}
-                    />
-                    <div className="flex flex-col leading-tight">
-                        <span className="font-bold text-lg">
-                        SkySend Expedition
-                        </span>
-                        <span className="text-xs text-gray-500 tracking-widest">
-                        AIR CARGO SYSTEM
-                        </span>
-                    </div>
-                </div>
-          {/* MENU */}
-                <div className="flex space-x-10 font-medium">
-                    <Link href="/">
-                    HOME
-                    </Link>
-                    <Link href="/tentang-kami">TENTANG KAMI</Link>
-                    <Link href="/kontak">HUBUNGI KAMI</Link>
-                    <Link href="/lacak-kargo" className="text-blue-600 border-b-2 border-blue-600">LACAK KARGO</Link>
-                </div>
-    
-          {/* BUTTON */}
-                <Link href="/login" className="bg-blue-600 text-white px-5 py-2 rounded-full">
-                    Login Supervisor
-                </Link>
+      <nav className="fixed w-full z-50 bg-white shadow-md">
+        <div className="flex items-center justify-between pl-2 pr-10 py-4 w-full">
+          <div className="flex items-center">
+            <Image src="/images/Logo.png" alt="logo" width={160} height={160} />
+            <div className="flex flex-col leading-tight">
+              <span className="font-bold text-lg">SkySend Expedition</span>
+              <span className="text-xs text-gray-500 tracking-widest">AIR CARGO SYSTEM</span>
             </div>
-        </nav>
+          </div>
+          <div className="flex space-x-10 font-medium">
+            <Link href="/">HOME</Link>
+            <Link href="/tentang-kami">TENTANG KAMI</Link>
+            <Link href="/kontak">HUBUNGI KAMI</Link>
+            <Link href="/lacak-kargo" className="text-blue-600 border-b-2 border-blue-600">LACAK KARGO</Link>
+          </div>
+          <Link href="/login" className="bg-blue-600 text-white px-5 py-2 rounded-full">Login Supervisor</Link>
+        </div>
+      </nav>
 
       {/* Hero */}
       <section className="relative h-64 flex items-end pt-16 overflow-hidden">
@@ -86,45 +95,69 @@ export default function LacakKargoPage() {
           <input
             type="text"
             value={awbInput}
-            onChange={e => setAwbInput(e.target.value)}
+            onChange={e => { setAwbInput(e.target.value); setError(''); }}
             onKeyDown={e => e.key === 'Enter' && handleTrack()}
-            placeholder="Masukkan Nomor AWB (Contoh: 601-48291087)"
+            placeholder="Masukkan Nomor AWB (Contoh: AWB-4829187xxx)"
             className="w-full border border-blue-400 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
           />
-          <button onClick={handleTrack} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">
-            Lacak Status Kargo
+          <button
+            onClick={handleTrack}
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors disabled:opacity-60"
+          >
+            {loading ? 'Mencari...' : 'Lacak Status Kargo'}
           </button>
 
-          {result === 'not_found' && (
+          {error && (
             <div className="mt-5 text-center">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-red-500 text-xl font-bold">!</span>
               </div>
               <h3 className="font-bold text-gray-800 mb-1">Nomor AWB Tidak Ditemukan</h3>
-              <p className="text-sm text-gray-500 mb-3">Kargo dengan nomor AWB tersebut tidak ada dalam sistem. Pastikan nomor yang dimasukkan sudah benar.</p>
+              <p className="text-sm text-gray-500 mb-3">{error}</p>
               <div className="bg-blue-50 rounded-lg p-4 text-left text-xs text-blue-700 mb-3">
                 <p className="font-bold mb-2">YANG PERLU DIPERIKSA:</p>
-                <p>· Format AWB: XXX-XXXXXXXX (contoh: 601-48291087)</p>
-                <p>· Pastikan tidak ada spasi atau karakter ekstra</p>
+                <p>· Pastikan nomor AWB sudah benar (contoh: AWB-1234567890)</p>
+                <p>· Tidak ada spasi atau karakter ekstra</p>
                 <p>· AWB belum diregistrasi atau belum diproses</p>
                 <p>· Hubungi supervisor untuk verifikasi manual</p>
               </div>
-              <button onClick={() => { setResult(null); setAwbInput(''); }} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700">
+              <button onClick={() => { setError(''); setAwbInput(''); setResult(null); }} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700">
                 Coba Nomor Lain
               </button>
             </div>
           )}
 
-          {result && result !== 'not_found' && (
+          {result && !error && (
             <div className="mt-5">
+              {/* Status Badge */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-blue-700 font-mono">{result.awb}</span>
-                  <span className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full">{result.status}</span>
+                  <span className="font-bold text-blue-700 font-mono text-sm">{result.no_resi}</span>
+                  <span className={`text-xs px-3 py-1 rounded-full font-semibold ${STATUS_COLORS[result.status_pengiriman] || 'bg-gray-100 text-gray-600'}`}>
+                    {result.status_pengiriman}
+                  </span>
                 </div>
-                <p className="text-sm text-blue-600">{result.pengirim} → {result.penerima}</p>
-                <p className="text-xs text-blue-500 mt-0.5">{result.rute} · {result.berat} · {result.maskapai}</p>
+                <p className="text-sm text-blue-600">{result.nama_pengirim} → {result.nama_penerima}</p>
+                <p className="text-xs text-blue-500 mt-0.5">
+                  {result.kota_asal} → {result.kota_tujuan} · {result.berat_barang} kg · {result.jenis_pengiriman}
+                  {result.pesawat ? ` · ${result.pesawat.kode_penerbangan}` : ''}
+                </p>
               </div>
+
+              {/* Pesawat Info */}
+              {result.pesawat && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-center gap-3 mb-4">
+                  <span className="text-xl">✈️</span>
+                  <div>
+                    <p className="text-xs text-indigo-400 font-semibold">Pesawat Kargo</p>
+                    <p className="text-sm font-bold text-indigo-700">{result.pesawat.kode_penerbangan} · {result.pesawat.maskapai}</p>
+                    <p className="text-xs text-indigo-500">Status: {result.pesawat.status_pesawat}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline */}
               <h3 className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-3">Riwayat Status</h3>
               <div className="relative">
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
@@ -134,13 +167,16 @@ export default function LacakKargoPage() {
                       {step.done ? '✓' : ''}
                     </div>
                     <div className="pt-1">
-                      <p className={`font-semibold text-sm ${step.done ? 'text-gray-800' : 'text-gray-400'}`}>{step.label}</p>
+                      <p className={`font-semibold text-sm ${step.done ? 'text-gray-800' : 'text-gray-400'}`}>{step.desc}</p>
                       <p className={`text-xs mt-0.5 ${step.done ? 'text-blue-500' : 'text-gray-400'}`}>{step.time}</p>
-                      <p className={`text-xs ${step.done ? 'text-gray-500' : 'text-gray-400'}`}>{step.location}</p>
                     </div>
                   </div>
                 ))}
               </div>
+
+              <button onClick={() => { setResult(null); setAwbInput(''); }} className="mt-2 w-full border border-blue-300 text-blue-600 py-2.5 rounded-lg text-sm hover:bg-blue-50">
+                Lacak AWB Lain
+              </button>
             </div>
           )}
         </div>

@@ -25,6 +25,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       harga_tarif, jenis_pengiriman, status_pengiriman, deskripsi, pesawat_id,
     } = body;
 
+    // Ambil data lama untuk cek perubahan status
+    const existing = await sql`SELECT no_resi, status_pengiriman FROM shipments WHERE id = ${id}`;
+    if (existing.length === 0) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+    const oldStatus = existing[0].status_pengiriman;
+    const no_resi = existing[0].no_resi;
+
+    // UPDATE tanpa updated_at (aman meski kolom belum ada di DB lama)
     const result = await sql`
       UPDATE shipments SET
         tanggal_kirim     = ${tanggal_kirim},
@@ -43,10 +50,28 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       WHERE id = ${id}
       RETURNING *
     `;
-    if (result.length === 0) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+
+    // Coba catat tracking log jika status berubah (tidak gagalkan update utama jika error)
+    if (oldStatus !== status_pengiriman) {
+      try {
+        await sql`
+          INSERT INTO tracking_logs (shipment_id, no_resi, status, keterangan, updated_by)
+          VALUES (
+            ${id},
+            ${no_resi},
+            ${status_pengiriman},
+            ${'Status diubah dari ' + oldStatus + ' menjadi ' + status_pengiriman},
+            'admin'
+          )
+        `;
+      } catch {
+        // Silent — tabel tracking_logs mungkin belum ada di DB ini
+      }
+    }
+
     return NextResponse.json({ data: result[0] });
   } catch (error) {
-    console.error(error);
+    console.error('PUT shipment error:', error);
     return NextResponse.json({ error: 'Gagal mengupdate data' }, { status: 500 });
   }
 }

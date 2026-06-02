@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { getUserFromCookie, logout } from '@/app/lib/auth-client';
 
 type Stats = {
   total_pengiriman: number;
@@ -42,7 +43,14 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
+
+  useEffect(() => {
+    const user = getUserFromCookie();
+    setCurrentUser(user);
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -81,6 +89,13 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleLogout() {
+    setLoggingOut(true);
+    await logout();
+  }
+
+  const initials = currentUser?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'AS';
+
   return (
     <div className="min-h-screen" style={{ fontFamily: 'system-ui, sans-serif' }}>
 
@@ -96,17 +111,17 @@ export default function DashboardPage() {
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
               className="flex items-center gap-3 px-3 py-2 rounded-xl border border-blue-100 bg-blue-50 hover:bg-blue-100 transition-colors"
             >
-              <div className="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-sm">AS</div>
+              <div className="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-sm">{initials}</div>
               <div className="text-left">
-                <div className="text-sm font-bold text-gray-800 leading-tight">Admin Sistem</div>
-                <div className="text-xs text-gray-500">Administrator</div>
+                <div className="text-sm font-bold text-gray-800 leading-tight">{currentUser?.name || 'Admin Sistem'}</div>
+                <div className="text-xs text-gray-500">{currentUser?.role || 'Administrator'}</div>
               </div>
             </button>
             {showProfileDropdown && (
               <div className="absolute right-0 top-14 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50">
                 <div className="px-5 pt-4 pb-3 border-b border-gray-100">
-                  <div className="font-bold text-gray-800 text-sm">Admin Sistem</div>
-                  <div className="text-xs text-gray-500">admin@kargo.com</div>
+                  <div className="font-bold text-gray-800 text-sm">{currentUser?.name || 'Admin Sistem'}</div>
+                  <div className="text-xs text-gray-500">{currentUser?.role}</div>
                 </div>
                 <button
                   onClick={() => { setShowProfileDropdown(false); setShowLogoutModal(true); }}
@@ -128,7 +143,9 @@ export default function DashboardPage() {
             <p className="text-gray-500 text-sm mb-7">Pastikan semua pekerjaan sudah tersimpan.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={() => setShowLogoutModal(false)} className="px-7 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50">Batal</button>
-              <button onClick={() => { window.location.href = '/'; }} className="px-7 py-2.5 rounded-xl font-semibold text-sm text-white bg-blue-800 hover:bg-blue-900">Ya, Keluar</button>
+              <button onClick={handleLogout} disabled={loggingOut} className="px-7 py-2.5 rounded-xl font-semibold text-sm text-white bg-blue-800 hover:bg-blue-900 disabled:opacity-60">
+                {loggingOut ? 'Keluar...' : 'Ya, Keluar'}
+              </button>
             </div>
           </div>
         </div>

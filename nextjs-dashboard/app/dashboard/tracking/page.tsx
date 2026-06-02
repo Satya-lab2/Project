@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { UserIcon, ArrowRightOnRectangleIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { getUserFromCookie, logout } from '@/app/lib/auth-client';
 
 type TrackingResult = {
   no_resi: string;
@@ -45,9 +46,12 @@ export default function TrackingPage() {
   const [time, setTime] = useState('');
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setCurrentUser(getUserFromCookie());
     const updateTime = () => {
       const now = new Date();
       const formatted = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -88,42 +92,42 @@ export default function TrackingPage() {
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') handleTracking();
+  async function handleLogout() {
+    setLoggingOut(true);
+    await logout();
   }
+
+  const initials = currentUser?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'AK';
 
   return (
     <div className="min-h-screen">
 
       {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">
-          Tracking Airway Bill (AWB)
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-800">Tracking Airway Bill (AWB)</h1>
 
         <div className='flex items-center gap-3'>
           <span className="text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-600 font-mono shadow-sm">
             {time}
           </span>
-          {/* PROFILE DROPDOWN */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowProfileDropdown(!showProfileDropdown)}
               className="flex items-center gap-3 px-3 py-2 rounded-xl border border-blue-100 bg-blue-50 hover:bg-blue-100 transition-colors focus:outline-none"
             >
-              <div className="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">AK</div>
+              <div className="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{initials}</div>
               <div className="text-left">
-                <div className="text-sm font-bold text-gray-800 leading-tight">Andika Kusuma</div>
-                <div className="text-xs text-gray-500">Supervisor</div>
+                <div className="text-sm font-bold text-gray-800 leading-tight">{currentUser?.name || 'Operator'}</div>
+                <div className="text-xs text-gray-500">{currentUser?.role || 'Staff'}</div>
               </div>
             </button>
             {showProfileDropdown && (
               <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
                 <div className="px-5 pt-5 pb-4 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-base flex-shrink-0">AK</div>
+                  <div className="w-12 h-12 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-base flex-shrink-0">{initials}</div>
                   <div>
-                    <div className="font-bold text-gray-800 text-sm">Andika Kusuma</div>
-                    <div className="text-xs text-gray-500 mt-0.5">Supervisor · SkySend</div>
+                    <div className="font-bold text-gray-800 text-sm">{currentUser?.name}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{currentUser?.role} · SkySend</div>
                   </div>
                 </div>
                 <div className="border-t border-gray-100 mx-4" />
@@ -145,10 +149,12 @@ export default function TrackingPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(2px)' }} onClick={() => setShowLogoutModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 max-w-sm w-full mx-4 text-center" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold text-gray-800 mb-3">Keluar dari Sistem?</h2>
-            <p className="text-gray-500 text-sm mb-7 leading-relaxed">Anda akan keluar dari sesi supervisor. Pastikan semua pekerjaan sudah tersimpan.</p>
+            <p className="text-gray-500 text-sm mb-7 leading-relaxed">Anda akan keluar dari sesi. Pastikan semua pekerjaan sudah tersimpan.</p>
             <div className="flex gap-3 justify-center">
               <button onClick={() => setShowLogoutModal(false)} className="px-7 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors">Batal</button>
-              <button onClick={() => { window.location.href = '/'; }} className="px-7 py-2.5 rounded-xl font-semibold text-sm text-white transition-colors" style={{ background: 'linear-gradient(180deg, #0f2044 0%, #1a3a6e 100%)' }}>Ya, Keluar</button>
+              <button onClick={handleLogout} disabled={loggingOut} className="px-7 py-2.5 rounded-xl font-semibold text-sm text-white transition-colors disabled:opacity-60" style={{ background: 'linear-gradient(180deg, #0f2044 0%, #1a3a6e 100%)' }}>
+                {loggingOut ? 'Keluar...' : 'Ya, Keluar'}
+              </button>
             </div>
           </div>
         </div>
@@ -164,7 +170,7 @@ export default function TrackingPage() {
           <input
             value={awb}
             onChange={(e) => setAwb(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(e) => e.key === 'Enter' && handleTracking()}
             placeholder="Contoh: AWB-4829187xxx"
             className="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -188,7 +194,6 @@ export default function TrackingPage() {
       {/* HASIL TRACKING */}
       {result && (
         <div className="mt-6 bg-white rounded-xl shadow-sm p-6 max-w-2xl space-y-5">
-          {/* Status Badge */}
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-lg text-gray-800">Detail Kargo</h3>
             <span className={`text-xs px-3 py-1.5 rounded-full font-semibold ${STATUS_COLORS[result.status_pengiriman] || 'bg-gray-100 text-gray-600'}`}>
@@ -196,7 +201,6 @@ export default function TrackingPage() {
             </span>
           </div>
 
-          {/* Info Grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-400 font-semibold mb-1">No AWB</p>
@@ -234,7 +238,6 @@ export default function TrackingPage() {
             </div>
           </div>
 
-          {/* Pesawat Info */}
           {result.pesawat && (
             <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-center gap-3">
               <span className="text-2xl">✈️</span>
@@ -246,7 +249,6 @@ export default function TrackingPage() {
             </div>
           )}
 
-          {/* Timeline */}
           <div>
             <h4 className="font-semibold text-gray-800 mb-3">Timeline Perjalanan</h4>
             <div className="space-y-0">

@@ -129,7 +129,11 @@ export default function ManifestPage() {
     if (!form.tanggal_kirim) e.tanggal_kirim = 'Wajib diisi';
     if (!form.nama_pengirim) e.nama_pengirim = 'Wajib diisi';
     if (!form.nama_penerima) e.nama_penerima = 'Wajib diisi';
-    if (!form.no_telepon) e.no_telepon = 'Wajib diisi';
+    if (!form.no_telepon) {
+      e.no_telepon = 'Wajib diisi';
+    } else if (!/^(\+62|62|0)[0-9]{8,13}$/.test(form.no_telepon.replace(/\s|-/g, ''))) {
+      e.no_telepon = 'Format tidak valid (contoh: 08123456789)';
+    }
     if (!form.kota_asal) e.kota_asal = 'Wajib diisi';
     if (!form.kota_tujuan) e.kota_tujuan = 'Wajib diisi';
     if (!form.jenis_barang) e.jenis_barang = 'Wajib diisi';
