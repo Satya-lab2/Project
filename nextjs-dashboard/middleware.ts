@@ -13,9 +13,10 @@ export function middleware(request: NextRequest) {
     const session = request.cookies.get('skysend_session');
 
     if (!session || session.value !== 'authenticated') {
-      // Redirect ke login jika belum login
+      // Redirect ke login dengan pesan
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
+      loginUrl.searchParams.set('msg', 'guest');
       return NextResponse.redirect(loginUrl);
     }
   }

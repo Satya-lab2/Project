@@ -34,7 +34,90 @@ const STATUS_COLORS: Record<string, string> = {
   'Sampai Tujuan': 'bg-green-100 text-green-700',
   'Pending': 'bg-orange-100 text-orange-700',
   'Selesai': 'bg-emerald-100 text-emerald-700',
+  'Hilang': 'bg-red-100 text-red-700',
+  'Diterima': 'bg-teal-100 text-teal-700',
 };
+
+const STATUS_BAR_COLORS: Record<string, string> = {
+  'Diproses': '#3b82f6',
+  'Dalam Pengiriman': '#f59e0b',
+  'Sampai Tujuan': '#22c55e',
+  'Pending': '#f97316',
+  'Selesai': '#10b981',
+  'Hilang': '#ef4444',
+  'Diterima': '#14b8a6',
+};
+
+// Simple bar chart component (no external lib needed)
+function BarChart({ data }: { data: { label: string; value: number; color: string }[] }) {
+  const max = Math.max(...data.map(d => d.value), 1);
+  return (
+    <div className="flex items-end gap-2 h-32 px-2">
+      {data.map((d, i) => (
+        <div key={i} className="flex flex-col items-center flex-1 gap-1">
+          <span className="text-xs font-bold text-gray-600">{d.value}</span>
+          <div
+            className="w-full rounded-t-md transition-all duration-700"
+            style={{
+              height: `${Math.max(4, (d.value / max) * 96)}px`,
+              backgroundColor: d.color,
+            }}
+          />
+          <span className="text-[10px] text-gray-500 text-center leading-tight">{d.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Simple donut/pie chart using SVG
+function DonutChart({ segments }: { segments: { label: string; value: number; color: string }[] }) {
+  const total = segments.reduce((a, b) => a + b.value, 0) || 1;
+  let cumulative = 0;
+  const cx = 60, cy = 60, r = 50, inner = 28;
+
+  function polarToXY(angle: number, radius: number) {
+    const rad = (angle - 90) * (Math.PI / 180);
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  }
+
+  function describeArc(startAngle: number, endAngle: number) {
+    const start = polarToXY(startAngle, r);
+    const end = polarToXY(endAngle, r);
+    const innerStart = polarToXY(endAngle, inner);
+    const innerEnd = polarToXY(startAngle, inner);
+    const large = endAngle - startAngle > 180 ? 1 : 0;
+    return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} L ${innerStart.x} ${innerStart.y} A ${inner} ${inner} 0 ${large} 0 ${innerEnd.x} ${innerEnd.y} Z`;
+  }
+
+  const paths = segments.map((seg) => {
+    const startAngle = (cumulative / total) * 360;
+    cumulative += seg.value;
+    const endAngle = (cumulative / total) * 360;
+    return { ...seg, path: describeArc(startAngle, endAngle < startAngle + 0.5 ? startAngle + 0.5 : endAngle) };
+  });
+
+  return (
+    <div className="flex items-center gap-4">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        {paths.map((p, i) => (
+          <path key={i} d={p.path} fill={p.color} stroke="white" strokeWidth="1.5" />
+        ))}
+        <text x="60" y="57" textAnchor="middle" fontSize="13" fontWeight="bold" fill="#374151">{total}</text>
+        <text x="60" y="70" textAnchor="middle" fontSize="8" fill="#9ca3af">Total</text>
+      </svg>
+      <div className="flex flex-col gap-1.5">
+        {segments.map((seg, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
+            <span className="text-gray-600">{seg.label}</span>
+            <span className="font-bold text-gray-800 ml-auto pl-2">{seg.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [time, setTime] = useState('');
@@ -46,6 +129,7 @@ export default function DashboardPage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const user = getUserFromCookie();
@@ -75,12 +159,19 @@ export default function DashboardPage() {
     try {
       const [statsRes, shipRes] = await Promise.all([
         fetch('/api/dashboard-stats'),
-        fetch('/api/shipments?limit=5'),
+        fetch('/api/shipments?limit=100'),
       ]);
       if (statsRes.ok) setStats(await statsRes.json());
       if (shipRes.ok) {
         const d = await shipRes.json();
-        setShipments(d.data || []);
+        const all: Shipment[] = d.data || [];
+        setShipments(all.slice(0, 5));
+        // Count by status for charts
+        const counts: Record<string, number> = {};
+        all.forEach(s => {
+          counts[s.status_pengiriman] = (counts[s.status_pengiriman] || 0) + 1;
+        });
+        setStatusCounts(counts);
       }
     } catch (e) {
       console.error(e);
@@ -95,6 +186,21 @@ export default function DashboardPage() {
   }
 
   const initials = currentUser?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'AS';
+
+  // Chart 1: Status bar chart data
+  const statusList = ['Diproses', 'Dalam Pengiriman', 'Sampai Tujuan', 'Pending', 'Selesai', 'Hilang', 'Diterima'];
+  const barChartData = statusList
+    .filter(s => (statusCounts[s] || 0) > 0 || ['Diproses', 'Dalam Pengiriman', 'Selesai'].includes(s))
+    .map(s => ({ label: s.replace(' ', '\n'), value: statusCounts[s] || 0, color: STATUS_BAR_COLORS[s] || '#94a3b8' }));
+
+  // Chart 2: Donut by jenis_pengiriman
+  const donutSegments = [
+    { label: 'Diproses', value: statusCounts['Diproses'] || 0, color: '#3b82f6' },
+    { label: 'Pengiriman', value: statusCounts['Dalam Pengiriman'] || 0, color: '#f59e0b' },
+    { label: 'Selesai', value: (statusCounts['Selesai'] || 0) + (statusCounts['Diterima'] || 0), color: '#10b981' },
+    { label: 'Pending', value: statusCounts['Pending'] || 0, color: '#f97316' },
+    { label: 'Hilang', value: statusCounts['Hilang'] || 0, color: '#ef4444' },
+  ].filter(s => s.value > 0);
 
   return (
     <div className="min-h-screen" style={{ fontFamily: 'system-ui, sans-serif' }}>
@@ -175,6 +281,34 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-purple-500">
             <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Total Pesawat</p>
             <p className="text-3xl font-bold text-gray-800 mt-1">{stats?.total_pesawat ?? 0}</p>
+          </div>
+        </div>
+      )}
+
+      {/* CHARTS ROW */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-5 shadow-sm animate-pulse h-48" />
+          <div className="bg-white rounded-xl p-5 shadow-sm animate-pulse h-48" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Chart 1: Bar chart status */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="font-bold text-gray-800 text-sm mb-1">Distribusi Status Kargo</h2>
+            <p className="text-xs text-gray-400 mb-4">Jumlah AWB per status pengiriman</p>
+            <BarChart data={barChartData} />
+          </div>
+
+          {/* Chart 2: Donut status breakdown */}
+          <div className="bg-white rounded-xl shadow-sm p-5">
+            <h2 className="font-bold text-gray-800 text-sm mb-1">Komposisi Status AWB</h2>
+            <p className="text-xs text-gray-400 mb-4">Proporsi berdasarkan kategori status</p>
+            {donutSegments.length > 0 ? (
+              <DonutChart segments={donutSegments} />
+            ) : (
+              <div className="h-32 flex items-center justify-center text-gray-400 text-sm">Belum ada data</div>
+            )}
           </div>
         </div>
       )}

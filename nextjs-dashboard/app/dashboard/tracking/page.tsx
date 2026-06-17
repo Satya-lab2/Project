@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { UserIcon, ArrowRightOnRectangleIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { getUserFromCookie, logout } from '@/app/lib/auth-client';
 
@@ -39,6 +40,7 @@ function formatRupiah(n: number) {
 }
 
 export default function TrackingPage() {
+  const router = useRouter();
   const [awb, setAwb] = useState('');
   const [result, setResult] = useState<TrackingResult | null>(null);
   const [error, setError] = useState('');
@@ -81,7 +83,8 @@ export default function TrackingPage() {
       const res = await fetch(`/api/tracking?awb=${encodeURIComponent(awb.trim())}`);
       const json = await res.json();
       if (!res.ok || json.error) {
-        setError(json.error || 'AWB tidak ditemukan');
+        // Redirect ke halaman not-found dengan AWB sebagai query param
+        router.push(`/dashboard/tracking/not-found?awb=${encodeURIComponent(awb.trim())}`);
       } else {
         setResult(json.data);
       }

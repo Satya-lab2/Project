@@ -23,6 +23,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/dashboard';
+  const isGuest = searchParams.get('msg') === 'guest';
 
   const isLocked = lockedUntil !== null && Date.now() < lockedUntil;
 
@@ -74,7 +75,6 @@ function LoginForm() {
         setFailCount(newCount);
 
         if (newCount >= MAX_ATTEMPTS) {
-          // Kunci form selama 60 detik
           setLockedUntil(Date.now() + LOCKOUT_SECONDS * 1000);
           setError('');
         } else {
@@ -123,7 +123,15 @@ function LoginForm() {
         </div>
 
         <h2 className="text-2xl font-bold text-blue-600 mb-1">Selamat Datang</h2>
-        <p className="text-sm text-gray-500 mb-6">Masuk ke sistem manajemen kargo udara</p>
+        <p className="text-sm text-gray-500 mb-4">Masuk ke sistem manajemen kargo udara</p>
+
+        {/* Guest warning banner */}
+        {isGuest && (
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 text-amber-700 text-sm px-3 py-2.5 rounded-lg mb-4">
+            <span className="text-lg">🔐</span>
+            <span className="font-medium">Anda belum login, silahkan login terlebih dahulu.</span>
+          </div>
+        )}
 
         {/* Tampilan saat dikunci */}
         {isLocked ? (

@@ -53,6 +53,8 @@ const AWB_STATUS_COLORS: Record<string, string> = {
   'Sampai Tujuan': 'bg-green-100 text-green-700',
   'Pending': 'bg-orange-100 text-orange-700',
   'Selesai': 'bg-emerald-100 text-emerald-700',
+  'Hilang': 'bg-red-100 text-red-700',
+  'Diterima': 'bg-teal-100 text-teal-700',
 };
 
 function formatRupiah(n: number) {

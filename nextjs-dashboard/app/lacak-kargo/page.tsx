@@ -31,6 +31,7 @@ export default function LacakKargoPage() {
   const [result, setResult] = useState<TrackingResult | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [awbNotFound, setAwbNotFound] = useState(false);
 
   async function handleTrack() {
     const key = awbInput.trim();
@@ -41,13 +42,16 @@ export default function LacakKargoPage() {
     setLoading(true);
     setError('');
     setResult(null);
+    setAwbNotFound(false);
     try {
       const res = await fetch(`/api/tracking?awb=${encodeURIComponent(key)}`);
       const json = await res.json();
       if (!res.ok || json.error) {
+        setAwbNotFound(true);
         setError(json.error || 'AWB tidak ditemukan.');
       } else {
         setResult(json.data);
+        setAwbNotFound(false);
       }
     } catch {
       setError('Gagal menghubungi server. Coba lagi.');
@@ -108,22 +112,33 @@ export default function LacakKargoPage() {
             {loading ? 'Mencari...' : 'Lacak Status Kargo'}
           </button>
 
-          {error && (
+          {error && !awbNotFound && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              ❌ {error}
+            </div>
+          )}
+
+          {awbNotFound && (
             <div className="mt-5 text-center">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-red-500 text-xl font-bold">!</span>
+              <div className="text-6xl mb-3 select-none">📭</div>
+              <div className="inline-flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-xs font-mono px-3 py-1 rounded-full mb-3">
+                <span className="font-bold">404</span>
+                <span>·</span>
+                <span>AWB Tidak Ditemukan</span>
               </div>
-              <h3 className="font-bold text-gray-800 mb-1">Nomor AWB Tidak Ditemukan</h3>
-              <p className="text-sm text-gray-500 mb-3">{error}</p>
-              <div className="bg-blue-50 rounded-lg p-4 text-left text-xs text-blue-700 mb-3">
+              <h3 className="font-bold text-gray-800 text-lg mb-1">Nomor AWB Tidak Ada di Sistem</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Nomor <span className="font-mono font-bold text-red-600">{awbInput}</span> tidak ditemukan.
+              </p>
+              <div className="bg-blue-50 rounded-lg p-4 text-left text-xs text-blue-700 mb-4">
                 <p className="font-bold mb-2">YANG PERLU DIPERIKSA:</p>
                 <p>· Pastikan nomor AWB sudah benar (contoh: AWB-1234567890)</p>
                 <p>· Tidak ada spasi atau karakter ekstra</p>
                 <p>· AWB belum diregistrasi atau belum diproses</p>
                 <p>· Hubungi supervisor untuk verifikasi manual</p>
               </div>
-              <button onClick={() => { setError(''); setAwbInput(''); setResult(null); }} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700">
-                Coba Nomor Lain
+              <button onClick={() => { setAwbNotFound(false); setError(''); setAwbInput(''); setResult(null); }} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700">
+                ← Coba Nomor Lain
               </button>
             </div>
           )}
