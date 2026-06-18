@@ -160,7 +160,7 @@ function LoginForm() {
                 type="text"
                 value={username}
                 onChange={e => { setUsername(e.target.value); setError(''); }}
-                placeholder="Contoh: Andika.05"
+                placeholder="Masukkan Username"
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 suppressHydrationWarning
                 className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-400' : 'border-blue-300'}`}

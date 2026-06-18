@@ -7,9 +7,14 @@ import { getUserFromCookie, logout } from '@/app/lib/auth-client';
 
 type Stats = {
   total_pengiriman: number;
+  draft: number;
   dalam_pengiriman: number;
   selesai: number;
   pending: number;
+  hilang: number;
+  diproses: number;
+  diterima: number;
+  sampai_tujuan: number;
   total_pesawat: number;
 };
 
@@ -39,6 +44,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_BAR_COLORS: Record<string, string> = {
+  'Draft': '#9ca3af',
   'Diproses': '#3b82f6',
   'Dalam Pengiriman': '#f59e0b',
   'Sampai Tujuan': '#22c55e',
@@ -71,8 +77,9 @@ function BarChart({ data }: { data: { label: string; value: number; color: strin
 }
 
 // Simple donut/pie chart using SVG
-function DonutChart({ segments }: { segments: { label: string; value: number; color: string }[] }) {
+function DonutChart({ segments, displayTotal }: { segments: { label: string; value: number; color: string }[]; displayTotal?: number }) {
   const total = segments.reduce((a, b) => a + b.value, 0) || 1;
+  const shownTotal = displayTotal ?? total;
   let cumulative = 0;
   const cx = 60, cy = 60, r = 50, inner = 28;
 
@@ -103,7 +110,7 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
         {paths.map((p, i) => (
           <path key={i} d={p.path} fill={p.color} stroke="white" strokeWidth="1.5" />
         ))}
-        <text x="60" y="57" textAnchor="middle" fontSize="13" fontWeight="bold" fill="#374151">{total}</text>
+        <text x="60" y="57" textAnchor="middle" fontSize="13" fontWeight="bold" fill="#374151">{shownTotal}</text>
         <text x="60" y="70" textAnchor="middle" fontSize="8" fill="#9ca3af">Total</text>
       </svg>
       <div className="flex flex-col gap-1.5">
@@ -129,7 +136,7 @@ export default function DashboardPage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
-  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+
 
   useEffect(() => {
     const user = getUserFromCookie();
@@ -166,12 +173,6 @@ export default function DashboardPage() {
         const d = await shipRes.json();
         const all: Shipment[] = d.data || [];
         setShipments(all.slice(0, 5));
-        // Count by status for charts
-        const counts: Record<string, number> = {};
-        all.forEach(s => {
-          counts[s.status_pengiriman] = (counts[s.status_pengiriman] || 0) + 1;
-        });
-        setStatusCounts(counts);
       }
     } catch (e) {
       console.error(e);
@@ -187,19 +188,27 @@ export default function DashboardPage() {
 
   const initials = currentUser?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'AS';
 
-  // Chart 1: Status bar chart data
-  const statusList = ['Diproses', 'Dalam Pengiriman', 'Sampai Tujuan', 'Pending', 'Selesai', 'Hilang', 'Diterima'];
-  const barChartData = statusList
-    .filter(s => (statusCounts[s] || 0) > 0 || ['Diproses', 'Dalam Pengiriman', 'Selesai'].includes(s))
-    .map(s => ({ label: s.replace(' ', '\n'), value: statusCounts[s] || 0, color: STATUS_BAR_COLORS[s] || '#94a3b8' }));
+  // Chart 1: Status bar chart — semua status termasuk Draft
+  const barChartData = [
+    { label: 'Draft',       value: stats?.draft          ?? 0, color: STATUS_BAR_COLORS['Draft'] },
+    { label: 'Diproses',    value: stats?.diproses       ?? 0, color: STATUS_BAR_COLORS['Diproses'] },
+    { label: 'Pengiriman',  value: stats?.dalam_pengiriman ?? 0, color: STATUS_BAR_COLORS['Dalam Pengiriman'] },
+    { label: 'Sampai\nTujuan', value: stats?.sampai_tujuan ?? 0, color: STATUS_BAR_COLORS['Sampai Tujuan'] },
+    { label: 'Pending',     value: stats?.pending        ?? 0, color: STATUS_BAR_COLORS['Pending'] },
+    { label: 'Selesai',     value: stats?.selesai        ?? 0, color: STATUS_BAR_COLORS['Selesai'] },
+    { label: 'Hilang',      value: stats?.hilang         ?? 0, color: STATUS_BAR_COLORS['Hilang'] },
+    { label: 'Diterima',    value: stats?.diterima       ?? 0, color: STATUS_BAR_COLORS['Diterima'] },
+  ].filter(d => d.value > 0 || ['Draft', 'Diproses', 'Selesai'].includes(d.label));
 
-  // Chart 2: Donut by jenis_pengiriman
+  // Chart 2: Donut — semua status, total dihitung otomatis dari semua segments
   const donutSegments = [
-    { label: 'Diproses', value: statusCounts['Diproses'] || 0, color: '#3b82f6' },
-    { label: 'Pengiriman', value: statusCounts['Dalam Pengiriman'] || 0, color: '#f59e0b' },
-    { label: 'Selesai', value: (statusCounts['Selesai'] || 0) + (statusCounts['Diterima'] || 0), color: '#10b981' },
-    { label: 'Pending', value: statusCounts['Pending'] || 0, color: '#f97316' },
-    { label: 'Hilang', value: statusCounts['Hilang'] || 0, color: '#ef4444' },
+    { label: 'Draft',       value: stats?.draft          ?? 0, color: '#9ca3af' },
+    { label: 'Diproses',    value: stats?.diproses       ?? 0, color: '#3b82f6' },
+    { label: 'Pengiriman',  value: stats?.dalam_pengiriman ?? 0, color: '#f59e0b' },
+    { label: 'Selesai',     value: (stats?.selesai ?? 0) + (stats?.diterima ?? 0), color: '#10b981' },
+    { label: 'Pending',     value: stats?.pending        ?? 0, color: '#f97316' },
+    { label: 'Hilang',      value: stats?.hilang         ?? 0, color: '#ef4444' },
+    { label: 'Sampai Tujuan', value: stats?.sampai_tujuan ?? 0, color: '#22c55e' },
   ].filter(s => s.value > 0);
 
   return (
