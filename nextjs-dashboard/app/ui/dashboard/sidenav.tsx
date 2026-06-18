@@ -16,6 +16,7 @@ const links = [
   { name: 'Kelola Shipment', href: '/dashboard/manifest', icon: DocumentDuplicateIcon },
   { name: 'Status Kargo', href: '/dashboard/status', icon: PaperAirplaneIcon },
   { name: 'Tracking AWB', href: '/dashboard/tracking', icon: DocumentMagnifyingGlassIcon },
+  { name: 'Status Shipment', href: '/dashboard/statusShipment', icon: PaperAirplaneIcon },
 ];
 
 export default function SideNav() {
